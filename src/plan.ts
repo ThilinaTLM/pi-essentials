@@ -145,35 +145,62 @@ export const planPresentTool = defineTool({
       throw new Error("Plan file is empty. Write your plan first, then present it.");
     }
 
-    // Show the full plan in a custom overlay, then ask for review
-    await ctx!.ui.custom((_tui, theme, _kb, done) => {
+    const options = ["Accept & Execute", "Request Changes", "Discard"] as const;
+    type Choice = (typeof options)[number];
+
+    const choice = await ctx!.ui.custom<Choice | null>((_tui, theme, _kb, done) => {
       const container = new Container();
       const border = new DynamicBorder((s: string) => theme.fg("accent", s));
       const mdTheme = getMarkdownTheme();
+
+      let selected = 0;
+
+      const optionLines = options.map(() => new Text("", 1, 0));
+      const hint = new Text(theme.fg("dim", "↑/↓ navigate  1-3 select  Enter confirm  Esc cancel"), 1, 0);
+
+      const updateOptions = () => {
+        for (let i = 0; i < options.length; i++) {
+          const num = `${i + 1}.`;
+          if (i === selected) {
+            optionLines[i].setText(theme.fg("accent", `${num} ${options[i]}`));
+          } else {
+            optionLines[i].setText(theme.fg("muted", `${num} `) + theme.fg("text", options[i]));
+          }
+        }
+        container.invalidate();
+      };
 
       container.addChild(border);
       container.addChild(new Text(theme.fg("accent", theme.bold("Plan Review")), 1, 0));
       container.addChild(new Text("", 0, 0));
       container.addChild(new Markdown(content, 1, 1, mdTheme));
       container.addChild(new Text("", 0, 0));
-      container.addChild(new Text(theme.fg("dim", "Press Enter to continue to review options, Esc to cancel"), 1, 0));
       container.addChild(border);
+      for (const line of optionLines) container.addChild(line);
+      container.addChild(hint);
+
+      updateOptions();
 
       return {
         render: (width: number) => container.render(width),
         invalidate: () => container.invalidate(),
         handleInput: (data: string) => {
-          if (matchesKey(data, "enter")) done("continue");
-          if (matchesKey(data, "escape")) done("cancel");
+          if (matchesKey(data, "up")) {
+            selected = (selected - 1 + options.length) % options.length;
+            updateOptions();
+          } else if (matchesKey(data, "down")) {
+            selected = (selected + 1) % options.length;
+            updateOptions();
+          } else if (data === "1" || data === "2" || data === "3") {
+            done(options[parseInt(data) - 1]);
+          } else if (matchesKey(data, "enter")) {
+            done(options[selected]);
+          } else if (matchesKey(data, "escape")) {
+            done(null);
+          }
         },
       };
     });
-
-    const choice = await ctx!.ui.select("What would you like to do?", [
-      "Accept & Execute",
-      "Request Changes",
-      "Discard",
-    ]);
 
     if (choice === "Accept & Execute") {
       exitPlanMode(ctx!);
@@ -190,18 +217,20 @@ export const planPresentTool = defineTool({
 
     if (choice === "Discard") {
       exitPlanMode(ctx!);
+      ctx!.abort();
       return {
         content: [{ type: "text", text: "Plan discarded. Full access restored." }],
         details: { content, action: "discarded", filePath: params.file_path },
       };
     }
 
-    // Request Changes or cancelled — stay in plan mode
+    // Request Changes, cancelled, or null — stay in plan mode, stop agent turn
+    ctx!.abort();
     return {
       content: [
         {
           type: "text",
-          text: `User wants changes to the plan. Ask what they'd like to change, update the plan file at ${params.file_path}, then present again.`,
+          text: `User wants changes to the plan. Update the plan file at ${params.file_path} and present again.`,
         },
       ],
       details: { content, action: "changes_requested", filePath: params.file_path },
@@ -218,21 +247,23 @@ export const planPresentTool = defineTool({
       | undefined;
     if (!details) return new Text("", 0, 0);
 
+    const container = new Container();
+    const mdTheme = getMarkdownTheme();
+
+    // Status line
     if (details.action === "accepted") {
-      return new Text(
-        theme.fg("success", "✓ Plan accepted — executing"),
-        0,
-        0,
-      );
+      container.addChild(new Text(theme.fg("success", "✓ Plan accepted — executing"), 0, 0));
+    } else if (details.action === "discarded") {
+      container.addChild(new Text(theme.fg("muted", "Plan discarded."), 0, 0));
+    } else {
+      container.addChild(new Text(theme.fg("warning", "Changes requested — update the plan and present again."), 0, 0));
     }
-    if (details.action === "discarded") {
-      return new Text(theme.fg("muted", "Plan discarded."), 0, 0);
-    }
-    return new Text(
-      theme.fg("warning", "Changes requested — update the plan and present again."),
-      0,
-      0,
-    );
+
+    // Render the full plan below the status
+    container.addChild(new Text("", 0, 0));
+    container.addChild(new Markdown(details.content, 1, 1, mdTheme));
+
+    return container;
   },
 });
 
