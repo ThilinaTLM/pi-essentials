@@ -208,7 +208,7 @@ export const planPresentTool = defineTool({
         content: [
           {
             type: "text",
-            text: `Plan accepted. Implement the following plan:\n\n${content}`,
+            text: `Plan accepted. Read the plan file at ${params.file_path} and start implementing it step by step.`,
           },
         ],
         details: { content, action: "accepted", filePath: params.file_path },
@@ -238,7 +238,7 @@ export const planPresentTool = defineTool({
   },
   renderCall(_args, theme, context) {
     const text = context.lastComponent ?? new Text("", 0, 0);
-    text.setText(theme.fg("toolTitle", theme.bold("Present Plan")));
+    text.setText(theme.fg("toolTitle", theme.bold("Plan")));
     return text;
   },
   renderResult(result, _options, theme) {
@@ -250,18 +250,19 @@ export const planPresentTool = defineTool({
     const container = new Container();
     const mdTheme = getMarkdownTheme();
 
-    // Status line
+    // Render the full plan
+    container.addChild(new Markdown(details.content, 1, 1, mdTheme));
+    container.addChild(new Text("", 0, 0));
+
+    // Status and file path at the bottom
     if (details.action === "accepted") {
       container.addChild(new Text(theme.fg("success", "✓ Plan accepted — executing"), 0, 0));
     } else if (details.action === "discarded") {
       container.addChild(new Text(theme.fg("muted", "Plan discarded."), 0, 0));
     } else {
-      container.addChild(new Text(theme.fg("warning", "Changes requested — update the plan and present again."), 0, 0));
+      container.addChild(new Text(theme.fg("warning", "Changes requested — describe what you'd like changed below."), 0, 0));
     }
-
-    // Render the full plan below the status
-    container.addChild(new Text("", 0, 0));
-    container.addChild(new Markdown(details.content, 1, 1, mdTheme));
+    container.addChild(new Text(theme.fg("dim", details.filePath), 0, 0));
 
     return container;
   },
