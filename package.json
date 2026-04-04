@@ -1,22 +1,32 @@
 {
-  "name": "pi-essentials",
-  "version": "1.0.0",
-  "type": "module",
-  "private": true,
-  "description": "Essential tools for the pi coding agent: todos, web search, and web fetch",
-  "pi": {
-    "extensions": [
-      "./src/index.ts"
-    ]
-  },
-  "scripts": {
-    "clean": "echo 'nothing to clean'",
-    "build": "echo 'nothing to build'",
-    "check": "echo 'nothing to check'"
-  },
-  "dependencies": {
-    "@mariozechner/pi-coding-agent": "^0.65.0",
-    "@sinclair/typebox": "^0.34.0",
-    "node-html-markdown": "^2.0.0"
-  }
+	"name": "pi-essentials",
+	"version": "1.0.0",
+	"type": "module",
+	"private": true,
+	"description": "Essential tools for the pi coding agent: todos, web search, and web fetch",
+	"pi": {
+		"extensions": [
+			"./src/index.ts"
+		]
+	},
+	"scripts": {
+		"clean": "echo 'nothing to clean'",
+		"build": "echo 'nothing to build'",
+		"format": "biome format --write .",
+		"lint": "biome lint .",
+		"lint:fix": "biome lint --write .",
+		"typecheck": "tsc --noEmit",
+		"check": "biome check . && tsc --noEmit",
+		"check:fix": "biome check --write ."
+	},
+	"dependencies": {
+		"@mariozechner/pi-coding-agent": "^0.65.0",
+		"@mariozechner/pi-tui": "^0.65.0",
+		"@sinclair/typebox": "^0.34.0",
+		"node-html-markdown": "^2.0.0"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.4.10",
+		"typescript": "6.0.2"
+	}
 }
