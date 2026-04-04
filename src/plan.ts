@@ -31,19 +31,15 @@ function enterPlanMode(ctx: ExtensionContext) {
   );
 }
 
-// --- Safe bash patterns ---
+// --- Blocked bash patterns ---
 
-const SAFE_BASH = [
-  /^ls\b/, /^cat\b/, /^head\b/, /^tail\b/, /^wc\b/,
-  /^find\b/, /^grep\b/, /^rg\b/, /^tree\b/,
-  /^git\s+(log|diff|status|show|branch|tag|rev-parse)\b/,
-  /^file\b/, /^stat\b/, /^pwd$/, /^which\b/, /^echo\b/,
-  /^du\b/, /^df\b/, /^printenv\b/, /^env$/,
+const BLOCKED_BASH = [
+  /\brm\s/, /\brm$/, // rm commands
 ];
 
-export function isSafeBashCommand(command: string): boolean {
+export function isBlockedBashCommand(command: string): boolean {
   const trimmed = command.trim();
-  return SAFE_BASH.some((pattern) => pattern.test(trimmed));
+  return BLOCKED_BASH.some((pattern) => pattern.test(trimmed));
 }
 
 function resolvePath(filePath: string): string {
@@ -324,13 +320,13 @@ export function registerPlan(pi: ExtensionAPI) {
       }
     }
 
-    // Restrict bash to safe commands
+    // Block destructive bash commands
     if (event.toolName === "bash") {
       const command = event.input.command as string;
-      if (!isSafeBashCommand(command)) {
+      if (isBlockedBashCommand(command)) {
         return {
           block: true,
-          reason: `Plan mode active — command not allowed. Only read-only commands are permitted.\nCommand: ${command}`,
+          reason: `Plan mode active — destructive command blocked.\nCommand: ${command}`,
         };
       }
     }
