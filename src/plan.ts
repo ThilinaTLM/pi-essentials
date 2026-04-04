@@ -196,7 +196,7 @@ export const planPresentTool = defineTool({
           } else if (matchesKey(data, "down")) {
             selected = (selected + 1) % options.length;
             updateOptions();
-          } else if (data === "1" || data === "2" || data === "3") {
+          } else if (data === "1" || data === "2") {
             done(options[parseInt(data) - 1]);
           } else if (matchesKey(data, "enter")) {
             done(options[selected]);
@@ -217,15 +217,6 @@ export const planPresentTool = defineTool({
           },
         ],
         details: { content, action: "accepted", filePath: params.file_path },
-      };
-    }
-
-    if (choice === "Discard") {
-      exitPlanMode(ctx!);
-      ctx!.abort();
-      return {
-        content: [{ type: "text", text: "Plan discarded. Full access restored." }],
-        details: { content, action: "discarded", filePath: params.file_path },
       };
     }
 
@@ -262,8 +253,6 @@ export const planPresentTool = defineTool({
     // Status and file path at the bottom
     if (details.action === "accepted") {
       container.addChild(new Text(theme.fg("success", "✓ Plan accepted — executing"), 0, 0));
-    } else if (details.action === "discarded") {
-      container.addChild(new Text(theme.fg("muted", "Plan discarded."), 0, 0));
     } else {
       container.addChild(new Text(theme.fg("warning", "Changes requested — describe what you'd like changed below."), 0, 0));
     }
