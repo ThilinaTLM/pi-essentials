@@ -18,17 +18,28 @@ export function isPlanActive(): boolean {
 
 const PLANS_DIR = join(homedir(), ".pi", "plans");
 
+function setPlanModeUI(ctx: ExtensionContext, active: boolean) {
+  if (!active) {
+    ctx.ui.setWidget("plan-mode", undefined);
+    return;
+  }
+
+  ctx.ui.setWidget("plan-mode", (_tui, theme) => ({
+    render: () => [
+      theme.fg("warning", theme.bold("⏸ PLAN MODE")),
+    ],
+    invalidate: () => {},
+  }));
+}
+
 function exitPlanMode(ctx: ExtensionContext) {
   planActive = false;
-  ctx.ui.setStatus("plan-mode", undefined);
+  setPlanModeUI(ctx, false);
 }
 
 function enterPlanMode(ctx: ExtensionContext) {
   planActive = true;
-  ctx.ui.setStatus(
-    "plan-mode",
-    ctx.ui.theme.fg("warning", "⏸ plan"),
-  );
+  setPlanModeUI(ctx, true);
 }
 
 // --- Blocked bash patterns ---
@@ -59,7 +70,7 @@ export const planEnterTool = defineTool({
   name: "plan_enter",
   label: "Enter Plan Mode",
   description:
-    `Enter plan mode for researching and planning before making changes. During plan mode, only read-only operations and writing plan files to ${PLANS_DIR}/ are allowed. Use this when a task is complex and needs proper planning before implementation.`,
+    `Enter plan mode — a read-only research and planning phase. You can read files, search, and run safe commands, but only write to ${PLANS_DIR}/. Use this for complex tasks that need requirements discovery, codebase research, and discussion with the user before implementation.`,
   parameters: Type.Object({}),
   async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
     if (planActive) {
@@ -75,7 +86,7 @@ export const planEnterTool = defineTool({
       content: [
         {
           type: "text",
-          text: `Plan mode active. Write your plan to ${PLANS_DIR}/<feature-name>.md\n\nGuidelines:\n- Research and explore the codebase (read-only)\n- Ask clarifying questions if requirements are ambiguous\n- Write a plan covering requirements, approach, and implementation steps\n- Mark open questions with [!QUESTION] and decisions with [!DECISION]\n- When ready, use plan_present to show the plan to the user`,
+          text: `Plan mode active. Plans are saved to ${PLANS_DIR}/<feature-name>.md\n\nStart by understanding what the user needs — ask questions, research the codebase, and explore options before writing anything. Use plan_present only after all open questions are resolved.`,
         },
       ],
       details: {},
@@ -121,7 +132,7 @@ export const planPresentTool = defineTool({
   name: "plan_present",
   label: "Present Plan",
   description:
-    "Present the plan to the user for review. The user can accept (start implementation), request changes, or discard the plan. This is the primary way to exit plan mode.",
+    "Present the finalized plan for user review. Only use this after all open questions and decisions are resolved through discussion. The user can accept, request changes, or discard.",
   parameters: Type.Object({
     file_path: Type.String({ description: "Path to the plan markdown file" }),
   }),
@@ -141,7 +152,7 @@ export const planPresentTool = defineTool({
       throw new Error("Plan file is empty. Write your plan first, then present it.");
     }
 
-    const options = ["Accept & Execute", "Request Changes", "Discard"] as const;
+    const options = ["Accept & Execute", "Request Changes"] as const;
     type Choice = (typeof options)[number];
 
     const choice = await ctx!.ui.custom<Choice | null>((_tui, theme, _kb, done) => {
@@ -152,7 +163,6 @@ export const planPresentTool = defineTool({
       let selected = 0;
 
       const optionLines = options.map(() => new Text("", 1, 0));
-      const hint = new Text(theme.fg("dim", "↑/↓ navigate  1-3 select  Enter confirm  Esc cancel"), 1, 0);
 
       const updateOptions = () => {
         for (let i = 0; i < options.length; i++) {
@@ -173,7 +183,6 @@ export const planPresentTool = defineTool({
       container.addChild(new Text("", 0, 0));
       container.addChild(border);
       for (const line of optionLines) container.addChild(line);
-      container.addChild(hint);
 
       updateOptions();
 
@@ -343,24 +352,41 @@ export function registerPlan(pi: ExtensionAPI) {
 You are in plan mode — a read-only research and planning mode.
 
 Restrictions:
-- You can READ files, search, grep, and run safe bash commands
-- You can WRITE only to ${PLANS_DIR}/ directory
-- You CANNOT edit existing code files
-- Use plan_present when your plan is ready for review
+- READ files, search, grep, run safe bash commands
+- WRITE only to ${PLANS_DIR}/ directory
+- NO code modifications
 
-Workflow:
-1. Understand the requirements — ask clarifying questions if anything is ambiguous
-2. Explore the codebase to ground your understanding
-3. Write a comprehensive plan to ${PLANS_DIR}/<feature-name>.md covering:
-   - Context: what problem this solves and why
-   - Requirements (functional)
-   - Implementation steps (specific files, functions, approach)
+## Your Role
+
+You are a technical partner, not an order-taker. Your job is to:
+- **Research** the codebase and external options before suggesting anything
+- **Challenge** assumptions — if the user's approach has trade-offs, explain them with evidence
+- **Propose** alternatives when you find better options, with concrete reasoning
+- **Ask** focused questions to eliminate ambiguity — don't guess, don't assume
+
+Do not accept decisions at face value. If you disagree, say so and explain why with facts from the codebase or domain knowledge. The user wants your honest technical judgment.
+
+## Workflow
+
+1. **Understand** — Parse the requirements. Ask clarifying questions upfront. Do not proceed with ambiguity.
+2. **Research** — Explore the codebase: file structure, key modules, types, patterns, dependencies. Understand what exists before proposing anything.
+3. **Discuss** — Have an active back-and-forth with the user. Surface trade-offs, propose options, resolve unknowns. This is the most important step.
+4. **Draft** — Once requirements are clear, write the plan to ${PLANS_DIR}/<feature-name>.md:
+   - What problem this solves and why
+   - Functional requirements
+   - Implementation steps (specific files, functions, modules, approach)
    - Dependencies and order of operations
-   - Verification steps
-4. Mark open questions with [!QUESTION] and decisions needing input with [!DECISION]
-5. Use plan_present to show the plan to the user
+   - Mark unresolved items with [!QUESTION] or [!DECISION] callouts
+5. **Refine** — Walk the user through the draft. Resolve every open item. Update until clean.
+6. **Present** — Use plan_present ONLY when all questions and decisions are resolved. The final plan must be self-contained and actionable with no open items.
 
-Do NOT attempt to modify code — just research and plan.`,
+## Plan Quality
+
+- Every step must be specific — name files, functions, types, and modules
+- Respect existing codebase patterns and conventions
+- Call out breaking changes, migrations, or risks explicitly
+- Keep steps small enough to be single reviewable units of work
+- The final plan should be executable without follow-up questions`,
         display: false,
       },
     };
