@@ -213,7 +213,7 @@ export const planPresentTool = defineTool({
         content: [
           {
             type: "text",
-            text: `Plan accepted. Read the plan file at ${params.file_path} and start implementing it step by step.`,
+            text: `Plan accepted. Read the plan file at ${params.file_path} and start implementing it now.`,
           },
         ],
         details: { content, action: "accepted", filePath: params.file_path },
