@@ -66,8 +66,19 @@ function resolvePath(filePath: string): string {
 	return resolve(filePath);
 }
 
-function isAllowedWritePath(filePath: string): boolean {
+function isAllowedPlanPath(filePath: string): boolean {
 	return resolvePath(filePath).startsWith(PLANS_DIR);
+}
+
+function getToolFilePath(input: {
+	path?: unknown;
+	file_path?: unknown;
+}): string | undefined {
+	return typeof input.path === "string"
+		? input.path
+		: typeof input.file_path === "string"
+			? input.file_path
+			: undefined;
 }
 
 function requireContext(ctx: ExtensionContext | undefined): ExtensionContext {
@@ -82,7 +93,7 @@ function requireContext(ctx: ExtensionContext | undefined): ExtensionContext {
 export const planEnterTool = defineTool({
 	name: "plan_enter",
 	label: "Enter Plan Mode",
-	description: `Enter plan mode — a read-only research and planning phase. You can read files, search, and run safe commands, but only write to ${PLANS_DIR}/. Use this for complex tasks that need requirements discovery, codebase research, and discussion with the user before implementation.`,
+	description: `Enter plan mode — a read-only research and planning phase. You can read files, search, and run safe commands, but only write and edit files in ${PLANS_DIR}/. Use this for complex tasks that need requirements discovery, codebase research, and discussion with the user before implementation.`,
 	parameters: Type.Object({}),
 	async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
 		if (planActive) {
@@ -99,7 +110,7 @@ export const planEnterTool = defineTool({
 			content: [
 				{
 					type: "text",
-					text: `Plan mode active. Plans are saved to ${PLANS_DIR}/<feature-name>.md\n\nStart by understanding what the user needs — ask questions, research the codebase, and explore options before writing anything. Use plan_present only after all open questions are resolved.`,
+					text: `Plan mode active. Plans are saved to ${PLANS_DIR}/<feature-name>.md\n\nStart by understanding what the user needs — ask questions, research the codebase, and explore options before writing anything. You may write and edit plan files in ${PLANS_DIR}/. Use plan_present only after all open questions are resolved.`,
 				},
 			],
 			details: {},
@@ -350,31 +361,26 @@ export function registerPlan(pi: ExtensionAPI) {
 	pi.on("tool_call", async (event) => {
 		if (!planActive) return;
 
-		const blocked = ["edit", "notebook_edit"];
-		if (blocked.includes(event.toolName)) {
+		if (event.toolName === "notebook_edit") {
 			return {
 				block: true,
 				reason:
-					"Plan mode active — file modifications are not allowed. Use plan_present to present your plan or plan_force_exit to exit.",
+					"Plan mode active — notebook_edit is not allowed. Use write/edit only for files in the plans directory, or use plan_present / plan_force_exit.",
 			};
 		}
 
-		// Allow write only to plan files
-		if (event.toolName === "write") {
-			const input = event.input as {
-				path?: unknown;
-				file_path?: unknown;
-			};
-			const filePath =
-				typeof input.path === "string"
-					? input.path
-					: typeof input.file_path === "string"
-						? input.file_path
-						: undefined;
-			if (!filePath || !isAllowedWritePath(filePath)) {
+		if (event.toolName === "edit" || event.toolName === "write") {
+			const filePath = getToolFilePath(
+				event.input as {
+					path?: unknown;
+					file_path?: unknown;
+				},
+			);
+			if (!filePath || !isAllowedPlanPath(filePath)) {
+				const action = event.toolName === "edit" ? "Edits" : "Writes";
 				return {
 					block: true,
-					reason: `Plan mode active — writes are only allowed to ${PLANS_DIR}/. Attempted: ${filePath}`,
+					reason: `Plan mode active — ${action.toLowerCase()} are only allowed in ${PLANS_DIR}/. Attempted: ${filePath}`,
 				};
 			}
 		}
@@ -403,8 +409,8 @@ You are in plan mode — a read-only research and planning mode.
 
 Restrictions:
 - READ files, search, grep, run safe bash commands
-- WRITE only to ${PLANS_DIR}/ directory
-- NO code modifications
+- WRITE and EDIT only in ${PLANS_DIR}/
+- NO code modifications outside the plans directory
 
 ## Your Role
 
