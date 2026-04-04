@@ -1,9 +1,10 @@
-import { defineTool, getAgentDir } from "@mariozechner/pi-coding-agent";
+import { defineTool, DynamicBorder, getMarkdownTheme } from "@mariozechner/pi-coding-agent";
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { Text } from "@mariozechner/pi-tui";
+import { Text, Container, Markdown, matchesKey } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { readFile, mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { homedir } from "node:os";
 
 // --- State ---
 
@@ -15,7 +16,7 @@ export function isPlanActive(): boolean {
 
 // --- Helpers ---
 
-const PLANS_DIR = join(getAgentDir(), "plans");
+const PLANS_DIR = join(homedir(), ".pi", "plans");
 
 function exitPlanMode(ctx: ExtensionContext) {
   planActive = false;
@@ -45,8 +46,15 @@ export function isSafeBashCommand(command: string): boolean {
   return SAFE_BASH.some((pattern) => pattern.test(trimmed));
 }
 
+function resolvePath(filePath: string): string {
+  if (filePath.startsWith("~/")) {
+    return join(homedir(), filePath.slice(2));
+  }
+  return resolve(filePath);
+}
+
 function isAllowedWritePath(filePath: string): boolean {
-  return filePath.startsWith(PLANS_DIR);
+  return resolvePath(filePath).startsWith(PLANS_DIR);
 }
 
 // --- Tools ---
@@ -55,7 +63,7 @@ export const planEnterTool = defineTool({
   name: "plan_enter",
   label: "Enter Plan Mode",
   description:
-    "Enter plan mode for researching and planning before making changes. During plan mode, only read-only operations and writing plan files to ~/.pi/plans/ are allowed. Use this when a task is complex and needs proper planning before implementation.",
+    `Enter plan mode for researching and planning before making changes. During plan mode, only read-only operations and writing plan files to ${PLANS_DIR}/ are allowed. Use this when a task is complex and needs proper planning before implementation.`,
   parameters: Type.Object({}),
   async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
     if (planActive) {
@@ -71,7 +79,7 @@ export const planEnterTool = defineTool({
       content: [
         {
           type: "text",
-          text: `Plan mode active. Write your plan to ~/.pi/plans/<feature-name>.md\n\nGuidelines:\n- Research and explore the codebase (read-only)\n- Ask clarifying questions if requirements are ambiguous\n- Write a plan covering requirements, approach, and implementation steps\n- Mark open questions with [!QUESTION] and decisions with [!DECISION]\n- When ready, use plan_present to show the plan to the user`,
+          text: `Plan mode active. Write your plan to ${PLANS_DIR}/<feature-name>.md\n\nGuidelines:\n- Research and explore the codebase (read-only)\n- Ask clarifying questions if requirements are ambiguous\n- Write a plan covering requirements, approach, and implementation steps\n- Mark open questions with [!QUESTION] and decisions with [!DECISION]\n- When ready, use plan_present to show the plan to the user`,
         },
       ],
       details: {},
@@ -137,7 +145,31 @@ export const planPresentTool = defineTool({
       throw new Error("Plan file is empty. Write your plan first, then present it.");
     }
 
-    const choice = await ctx!.ui.select("Plan Review", [
+    // Show the full plan in a custom overlay, then ask for review
+    await ctx!.ui.custom((_tui, theme, _kb, done) => {
+      const container = new Container();
+      const border = new DynamicBorder((s: string) => theme.fg("accent", s));
+      const mdTheme = getMarkdownTheme();
+
+      container.addChild(border);
+      container.addChild(new Text(theme.fg("accent", theme.bold("Plan Review")), 1, 0));
+      container.addChild(new Text("", 0, 0));
+      container.addChild(new Markdown(content, 1, 1, mdTheme));
+      container.addChild(new Text("", 0, 0));
+      container.addChild(new Text(theme.fg("dim", "Press Enter to continue to review options, Esc to cancel"), 1, 0));
+      container.addChild(border);
+
+      return {
+        render: (width: number) => container.render(width),
+        invalidate: () => container.invalidate(),
+        handleInput: (data: string) => {
+          if (matchesKey(data, "enter")) done("continue");
+          if (matchesKey(data, "escape")) done("cancel");
+        },
+      };
+    });
+
+    const choice = await ctx!.ui.select("What would you like to do?", [
       "Accept & Execute",
       "Request Changes",
       "Discard",
@@ -251,8 +283,8 @@ export function registerPlan(pi: ExtensionAPI) {
 
     // Allow write only to plan files
     if (event.toolName === "write") {
-      const filePath = event.input.file_path as string;
-      if (!isAllowedWritePath(filePath)) {
+      const filePath = (event.input.path ?? event.input.file_path) as string | undefined;
+      if (!filePath || !isAllowedWritePath(filePath)) {
         return {
           block: true,
           reason: `Plan mode active — writes are only allowed to ${PLANS_DIR}/. Attempted: ${filePath}`,
@@ -284,14 +316,14 @@ You are in plan mode — a read-only research and planning mode.
 
 Restrictions:
 - You can READ files, search, grep, and run safe bash commands
-- You can WRITE only to ~/.pi/plans/ directory
+- You can WRITE only to ${PLANS_DIR}/ directory
 - You CANNOT edit existing code files
 - Use plan_present when your plan is ready for review
 
 Workflow:
 1. Understand the requirements — ask clarifying questions if anything is ambiguous
 2. Explore the codebase to ground your understanding
-3. Write a comprehensive plan to ~/.pi/plans/<feature-name>.md covering:
+3. Write a comprehensive plan to ${PLANS_DIR}/<feature-name>.md covering:
    - Context: what problem this solves and why
    - Requirements (functional)
    - Implementation steps (specific files, functions, approach)
