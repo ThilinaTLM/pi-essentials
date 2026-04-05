@@ -61,7 +61,7 @@ function setPlanModeUI(ctx: ExtensionContext, active: boolean) {
 	}
 
 	ctx.ui.setWidget("plan-mode", (_tui, theme) => ({
-		render: () => [theme.fg("warning", theme.bold("⏸ PLAN MODE"))],
+		render: () => [theme.fg("warning", theme.bold("PLAN MODE"))],
 		invalidate: () => {},
 	}));
 }
