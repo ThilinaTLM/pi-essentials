@@ -21,6 +21,7 @@ import {
 	type TUI,
 } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
+import { exploreTool } from "./explore.js";
 
 /**
  * Walk the TUI component tree and find the active Loader (spinner).
@@ -66,7 +67,11 @@ function setPlanModeUI(ctx: ExtensionContext, active: boolean) {
 	}));
 }
 
-const PLAN_ONLY_TOOLS = ["plan_mode_force_exit", "plan_mode_present"];
+const PLAN_ONLY_TOOLS = [
+	"plan_mode_force_exit",
+	"plan_mode_present",
+	"explore",
+];
 
 function setPlanToolsActive(active: boolean) {
 	if (!piRef) return;
@@ -390,6 +395,7 @@ export function registerPlan(pi: ExtensionAPI) {
 	pi.registerTool(planEnterTool);
 	pi.registerTool(planForceExitTool);
 	pi.registerTool(planPresentTool);
+	pi.registerTool(exploreTool);
 
 	// Hide plan-only tools until plan mode is entered
 	pi.on("session_start", async () => {
