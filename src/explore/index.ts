@@ -214,10 +214,14 @@ export const exploreTool = defineTool({
 			}>;
 		const isResultError = (r: ExploreResult) =>
 			r.exitCode > 0 || r.stopReason === "error" || r.stopReason === "aborted";
-		const getStatusText = (r: ExploreResult) => {
-			if (r.exitCode === -1) return theme.fg("warning", "running");
-			if (isResultError(r)) return theme.fg("error", "failed");
-			return theme.fg("success", "done");
+		const getStatusBadge = (r: ExploreResult) => {
+			if (r.exitCode === -1) {
+				return getToolCalls(r).length === 0
+					? theme.fg("warning", "[starting]")
+					: theme.fg("warning", "[exploring]");
+			}
+			if (isResultError(r)) return theme.fg("error", "[failed]");
+			return theme.fg("success", "[done]");
 		};
 		const getRecentSteps = (r: ExploreResult) => {
 			const toolCalls = getToolCalls(r);
@@ -236,7 +240,7 @@ export const exploreTool = defineTool({
 			const agentPrefix = isLastAgent ? "└──" : "├──";
 			const childPrefix = isLastAgent ? "    " : "│   ";
 			const lines = [
-				`${theme.fg("muted", agentPrefix)} ${theme.fg("muted", `Agent ${index + 1}:`)} ${getStatusText(r)} ${theme.fg("dim", preview(r.task))}`,
+				`${theme.fg("muted", agentPrefix)} ${theme.fg("muted", `Agent ${index + 1}`)} ${getStatusBadge(r)} ${theme.fg("dim", preview(r.task))}`,
 			];
 
 			const { recent, remaining } = getRecentSteps(r);
