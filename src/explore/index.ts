@@ -266,11 +266,7 @@ export const exploreTool = defineTool({
 			return lines;
 		};
 
-		const agentCount = details.results.length;
-		const label = agentCount === 1 ? "agent" : "agents";
-		const lines = [
-			theme.fg("toolTitle", theme.bold(`Explore (${agentCount} ${label})`)),
-		];
+		const lines: string[] = [];
 
 		for (let i = 0; i < details.results.length; i++) {
 			lines.push(
