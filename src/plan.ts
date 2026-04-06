@@ -21,7 +21,7 @@ import {
 	type TUI,
 } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
-import { exploreTool } from "./explore.js";
+import { exploreTool } from "./explore/index.js";
 
 /**
  * Walk the TUI component tree and find the active Loader (spinner).
