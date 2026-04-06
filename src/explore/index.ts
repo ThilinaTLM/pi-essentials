@@ -1,6 +1,8 @@
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { defineTool } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
+import { getEnabledModels, getSettings, saveSettings } from "../settings.js";
 import { formatToolCall, getDisplayItems, getFinalOutput } from "./format.js";
 import {
 	emptyUsage,
@@ -61,9 +63,21 @@ export const exploreTool = defineTool({
 			);
 		}
 
-		const model = ctx?.model;
-		if (!model) throw new Error("No model available.");
-		const modelId = `${model.provider}/${model.id}`;
+		const exploreModel = getSettings().exploreModel;
+		let modelId: string;
+		if (exploreModel) {
+			const [provider, id] = exploreModel.split("/", 2);
+			const resolved = ctx?.modelRegistry.find(provider, id);
+			if (!resolved)
+				throw new Error(`Configured explore model not found: ${exploreModel}`);
+			if (!ctx?.modelRegistry.hasConfiguredAuth(resolved))
+				throw new Error(`No API key for explore model: ${exploreModel}`);
+			modelId = exploreModel;
+		} else {
+			const model = ctx?.model;
+			if (!model) throw new Error("No model available.");
+			modelId = `${model.provider}/${model.id}`;
+		}
 
 		const makeDetails =
 			(mode: "single" | "parallel") =>
@@ -231,6 +245,17 @@ export const exploreTool = defineTool({
 				remaining: Math.max(0, toolCalls.length - recent.length),
 			};
 		};
+		const shortModel = (model?: string) => {
+			if (!model) return "";
+			const id = model.includes("/")
+				? (model.split("/").pop() ?? model)
+				: model;
+			return id
+				.replace(/^claude-/i, "")
+				.replace(/-\d{8}$/, "")
+				.replace(/-latest$/, "");
+		};
+
 		const renderAgentLines = (
 			r: ExploreResult,
 			index: number,
@@ -239,8 +264,11 @@ export const exploreTool = defineTool({
 			const isLastAgent = index === total - 1;
 			const agentPrefix = isLastAgent ? "└──" : "├──";
 			const childPrefix = isLastAgent ? "    " : "│   ";
+			const modelTag = r.model
+				? ` ${theme.fg("muted", `(${shortModel(r.model)})`)}`
+				: "";
 			const lines = [
-				`${theme.fg("muted", agentPrefix)} ${theme.fg("muted", `Agent ${index + 1}`)} ${getStatusBadge(r)} ${theme.fg("dim", preview(r.task))}`,
+				`${theme.fg("muted", agentPrefix)} ${theme.fg("muted", `A${index + 1}`)}${modelTag} ${getStatusBadge(r)} ${theme.fg("dim", preview(r.task))}`,
 			];
 
 			const { recent, remaining } = getRecentSteps(r);
@@ -281,3 +309,49 @@ export const exploreTool = defineTool({
 		return new Text(lines.join("\n"), 0, 0);
 	},
 });
+
+export function registerExplore(pi: ExtensionAPI): void {
+	pi.registerTool(exploreTool);
+
+	pi.registerCommand("explore-model", {
+		description: "Set the model used by explore sub-agents",
+		handler: async (_args, ctx) => {
+			const available = ctx.modelRegistry.getAvailable();
+			const enabledPatterns = await getEnabledModels();
+
+			const models =
+				enabledPatterns.length > 0
+					? available.filter((m) => {
+							const key = `${m.provider}/${m.id}`;
+							return enabledPatterns.some(
+								(p) => p === key || p === m.id || p === m.name,
+							);
+						})
+					: available;
+
+			const defaultOption = "Use parent model (default)";
+			const options = [
+				defaultOption,
+				...models.map((m) => `${m.provider}/${m.id}`),
+			];
+
+			const current = getSettings().exploreModel;
+			const choice = await ctx.ui.select(
+				`Explore model${current ? ` (current: ${current})` : ""}`,
+				options,
+			);
+			if (!choice) return;
+
+			const settings = { ...getSettings() };
+			if (choice === defaultOption) {
+				delete settings.exploreModel;
+				await saveSettings(settings);
+				ctx.ui.notify("Explore model reset to parent model.", "info");
+			} else {
+				settings.exploreModel = choice;
+				await saveSettings(settings);
+				ctx.ui.notify(`Explore model set to ${choice}`, "info");
+			}
+		},
+	});
+}
