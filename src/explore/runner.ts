@@ -149,6 +149,8 @@ export async function runExploreAgent(
 			"json",
 			"-p",
 			"--no-session",
+			"--no-extensions",
+			"--no-skills",
 			"--model",
 			model,
 			"--tools",
