@@ -119,7 +119,7 @@ export async function runExploreAgent(
 ): Promise<ExploreResult> {
 	const result: ExploreResult = {
 		task,
-		exitCode: 0,
+		exitCode: -1,
 		messages: [],
 		stderr: "",
 		usage: emptyUsage(),
