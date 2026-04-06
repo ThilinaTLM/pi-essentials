@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { exploreTool } from "./explore/index.js";
 import { registerFooter } from "./footer.js";
 import { registerPlan } from "./plan.js";
 import { todosGetTool, todosSetTool } from "./todo.js";
@@ -11,6 +12,7 @@ export default function (pi: ExtensionAPI) {
 	pi.registerTool(todosGetTool);
 	pi.registerTool(webSearchTool);
 	pi.registerTool(webFetchTool);
+	pi.registerTool(exploreTool);
 	registerPlan(pi);
 	registerFooter(pi);
 	registerWelcome(pi);

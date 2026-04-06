@@ -23,10 +23,12 @@ export const exploreTool = defineTool({
 	name: "explore",
 	label: "Explore",
 	description: [
-		"Spawn sub-agents to explore the codebase and report findings.",
-		"Each agent runs in an isolated process with its own context window.",
+		"Spawn read-only sub-agents to explore the codebase in isolated processes.",
 		'Single mode: { task: "..." }. Parallel mode: { tasks: [{ task: "..." }, ...] } (max 5).',
-		"Use this to research code structure, find patterns, trace dependencies, or understand modules without consuming your own context.",
+		"When to use: Do a quick high-level scan first (grep/find) to assess scope.",
+		"If the answer needs reading many files, tracing cross-module dependencies, or understanding a subsystem, dispatch explore agents for the heavy reading.",
+		"Use parallel mode when investigating several independent areas.",
+		"Do NOT use for simple lookups you can answer with a few read/grep calls.",
 		"Optionally pass context to share what you already know with the sub-agent.",
 	].join(" "),
 	parameters: Type.Object({
