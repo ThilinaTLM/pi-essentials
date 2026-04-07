@@ -37,12 +37,13 @@ function getLogoColumns(theme: Theme): string[] {
 }
 
 function getModelLines(theme: Theme, info: ModelInfo, width: number): string[] {
-	const modelLabel = theme.fg("accent", info.current);
-	const exploreLabel = info.explore
-		? theme.fg("muted", info.explore)
-		: undefined;
+	const heavy = `${theme.fg("accent", "●")} ${theme.fg("accent", info.current)}`;
+	const lite = info.explore
+		? `${theme.fg("muted", "○")} ${theme.fg("muted", info.explore)}`
+		: "";
+	const author = theme.fg("muted", "\u2387 @ThilinaTLM");
 
-	const lines = ["", modelLabel, exploreLabel ?? "", ""];
+	const lines = [heavy, lite, "", author];
 
 	const maxWidth = lines.reduce(
 		(max, line) => Math.max(max, visibleWidth(line)),
@@ -97,7 +98,7 @@ function shouldShowWelcome(
 export function registerWelcome(pi: ExtensionAPI): void {
 	let modelInfo: ModelInfo = { current: "no-model", explore: undefined };
 
-	function resolveModelLabel(
+	function resolveModelId(
 		modelId: string | undefined,
 		registry?: ModelLookup,
 	): string | undefined {
@@ -106,7 +107,7 @@ export function registerWelcome(pi: ExtensionAPI): void {
 		const [provider, id] = modelId.split("/", 2);
 		if (!provider || !id) return modelId;
 		const resolved = registry.find(provider, id);
-		return resolved ? resolved.name || resolved.id : modelId;
+		return resolved?.id ?? modelId;
 	}
 
 	function updateModelInfo(
@@ -114,8 +115,8 @@ export function registerWelcome(pi: ExtensionAPI): void {
 		registry?: ModelLookup,
 	): void {
 		modelInfo = {
-			current: model ? model.name || model.id : "no-model",
-			explore: resolveModelLabel(getSettings().exploreModel, registry),
+			current: model ? model.id : "no-model",
+			explore: resolveModelId(getSettings().exploreModel, registry),
 		};
 	}
 
