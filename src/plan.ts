@@ -396,19 +396,26 @@ export function registerPlan(pi: ExtensionAPI) {
 		setPlanToolsActive(planActive);
 	});
 
+	const togglePlanMode = async (ctx: ExtensionContext) => {
+		if (planActive) {
+			exitPlanMode(ctx);
+			ctx.ui.notify("Plan mode exited. Full access restored.", "info");
+		} else {
+			await mkdir(PLANS_DIR, { recursive: true });
+			enterPlanMode(ctx);
+			ctx.ui.notify("Plan mode active.", "info");
+		}
+	};
+
 	// Slash command — toggles plan mode
 	pi.registerCommand("plan", {
 		description: "Toggle plan mode",
-		handler: async (_args, ctx) => {
-			if (planActive) {
-				exitPlanMode(ctx);
-				ctx.ui.notify("Plan mode exited. Full access restored.", "info");
-			} else {
-				await mkdir(PLANS_DIR, { recursive: true });
-				enterPlanMode(ctx);
-				ctx.ui.notify("Plan mode active.", "info");
-			}
-		},
+		handler: async (_args, ctx) => togglePlanMode(ctx),
+	});
+
+	pi.registerShortcut("ctrl+alt+p", {
+		description: "Toggle plan mode",
+		handler: async (ctx) => togglePlanMode(ctx),
 	});
 
 	// Block destructive tools during plan mode
@@ -451,14 +458,14 @@ export function registerPlan(pi: ExtensionAPI) {
 		}
 	});
 
-	// Inject plan mode context
-	pi.on("before_agent_start", async () => {
+	// Inject plan mode guidance into the system prompt
+	pi.on("before_agent_start", async (event) => {
 		if (!planActive) return;
 
 		return {
-			message: {
-				customType: "plan-mode-context",
-				content: `[PLAN MODE ACTIVE]
+			systemPrompt: `${event.systemPrompt}
+
+[PLAN MODE ACTIVE]
 You are in plan mode — a read-only research and planning mode.
 
 Restrictions:
@@ -497,19 +504,6 @@ Do not accept decisions at face value. If you disagree, say so and explain why w
 - Call out breaking changes, migrations, or risks explicitly
 - Keep steps small enough to be single reviewable units of work
 - The final plan should be executable without follow-up questions`,
-				display: false,
-			},
-		};
-	});
-
-	// Clean up plan mode context when not active
-	pi.on("context", async (event) => {
-		if (planActive) return;
-		return {
-			messages: event.messages.filter((m) => {
-				const msg = m as { customType?: string };
-				return msg.customType !== "plan-mode-context";
-			}),
 		};
 	});
 }
