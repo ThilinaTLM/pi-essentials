@@ -2,7 +2,9 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { defineTool } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
-import { getEnabledModels, getSettings, saveSettings } from "../settings.js";
+import { getSettings } from "../../shared/settings.js";
+import { renderToolTitle } from "../../shared/tool-ui.js";
+import { registerExploreModelCommand } from "./command.js";
 import { formatToolCall, getDisplayItems, getFinalOutput } from "./format.js";
 import {
 	emptyUsage,
@@ -196,16 +198,13 @@ export const exploreTool = defineTool({
 	},
 
 	renderCall(args, theme, context) {
-		const text =
-			context.lastComponent instanceof Text
-				? context.lastComponent
-				: new Text("", 0, 0);
 		const agentCount = args.tasks?.length ?? (args.task ? 1 : 0);
 		const label = agentCount === 1 ? "agent" : "agents";
-		text.setText(
-			theme.fg("toolTitle", theme.bold(`Explore (${agentCount} ${label})`)),
+		return renderToolTitle(
+			theme,
+			context.lastComponent,
+			`Explore (${agentCount} ${label})`,
 		);
-		return text;
 	},
 
 	renderResult(result, _options, theme) {
@@ -312,46 +311,5 @@ export const exploreTool = defineTool({
 
 export function registerExplore(pi: ExtensionAPI): void {
 	pi.registerTool(exploreTool);
-
-	pi.registerCommand("explore-model", {
-		description: "Set the model used by explore sub-agents",
-		handler: async (_args, ctx) => {
-			const available = ctx.modelRegistry.getAvailable();
-			const enabledPatterns = await getEnabledModels();
-
-			const models =
-				enabledPatterns.length > 0
-					? available.filter((m) => {
-							const key = `${m.provider}/${m.id}`;
-							return enabledPatterns.some(
-								(p) => p === key || p === m.id || p === m.name,
-							);
-						})
-					: available;
-
-			const defaultOption = "Use parent model (default)";
-			const options = [
-				defaultOption,
-				...models.map((m) => `${m.provider}/${m.id}`),
-			];
-
-			const current = getSettings().exploreModel;
-			const choice = await ctx.ui.select(
-				`Explore model${current ? ` (current: ${current})` : ""}`,
-				options,
-			);
-			if (!choice) return;
-
-			const settings = { ...getSettings() };
-			if (choice === defaultOption) {
-				delete settings.exploreModel;
-				await saveSettings(settings);
-				ctx.ui.notify("Explore model reset to parent model.", "info");
-			} else {
-				settings.exploreModel = choice;
-				await saveSettings(settings);
-				ctx.ui.notify(`Explore model set to ${choice}`, "info");
-			}
-		},
-	});
+	registerExploreModelCommand(pi);
 }

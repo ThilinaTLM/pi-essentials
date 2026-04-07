@@ -5,6 +5,7 @@ import { defineTool } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { NodeHtmlMarkdown } from "node-html-markdown";
+import { renderToolTitle } from "../../shared/tool-ui.js";
 
 const MAX_INLINE_BYTES = 512 * 1024; // 512 KB
 const TMP_DIR = "/tmp/pi-fetch";
@@ -178,15 +179,13 @@ export const webFetchTool = defineTool({
 		};
 	},
 	renderCall(args, theme, context) {
-		const text =
-			context.lastComponent instanceof Text
-				? context.lastComponent
-				: new Text("", 0, 0);
-		const label = theme.fg("toolTitle", theme.bold("Web Fetch"));
-		const url = theme.fg("accent", args.url);
 		const rawTag = args.raw ? theme.fg("warning", " [raw]") : "";
-		text.setText(`${label} ${url}${rawTag}`);
-		return text;
+		return renderToolTitle(
+			theme,
+			context.lastComponent,
+			"Web Fetch",
+			` ${theme.fg("accent", args.url)}${rawTag}`,
+		);
 	},
 	renderResult(result, _options, theme) {
 		const details = result.details as FetchDetails | undefined;

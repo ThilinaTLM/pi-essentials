@@ -1,12 +1,12 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { registerExplore } from "./explore/index.js";
-import { registerFooter } from "./footer.js";
-import { registerPlan } from "./plan.js";
-import { loadSettings } from "./settings.js";
-import { todosGetTool, todosSetTool } from "./todo.js";
-import { webFetchTool } from "./web-fetch.js";
-import { webSearchTool } from "./web-search.js";
-import { registerWelcome } from "./welcome.js";
+import { registerExplore } from "./features/explore/index.js";
+import { registerFooter } from "./features/footer/index.js";
+import { registerPlan } from "./features/plan/index.js";
+import { registerWelcome } from "./features/welcome/index.js";
+import { loadSettings } from "./shared/settings.js";
+import { todosGetTool, todosSetTool } from "./tools/todo/index.js";
+import { webFetchTool } from "./tools/web-fetch/index.js";
+import { webSearchTool } from "./tools/web-search/index.js";
 
 export default function (pi: ExtensionAPI) {
 	pi.registerTool(todosSetTool);

@@ -1,6 +1,7 @@
 import { defineTool } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
+import { renderToolTitle } from "../../shared/tool-ui.js";
 
 interface TavilyResult {
 	title: string;
@@ -80,16 +81,12 @@ export const webSearchTool = defineTool({
 		};
 	},
 	renderCall(args, theme, context) {
-		const text =
-			context.lastComponent instanceof Text
-				? context.lastComponent
-				: new Text("", 0, 0);
-		text.setText(
-			theme.fg("toolTitle", theme.bold("Web Search")) +
-				" " +
-				theme.fg("accent", args.query),
+		return renderToolTitle(
+			theme,
+			context.lastComponent,
+			"Web Search",
+			` ${theme.fg("accent", args.query)}`,
 		);
-		return text;
 	},
 	renderResult(result, _options, theme) {
 		const details = result.details as SearchDetails | undefined;

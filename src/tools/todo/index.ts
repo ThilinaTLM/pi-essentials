@@ -1,6 +1,7 @@
 import { defineTool, type Theme } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
+import { renderToolTitle } from "../../shared/tool-ui.js";
 
 interface TodoItem {
 	todo: string;
@@ -54,12 +55,7 @@ export const todosSetTool = defineTool({
 		};
 	},
 	renderCall(_args, theme, context) {
-		const text =
-			context.lastComponent instanceof Text
-				? context.lastComponent
-				: new Text("", 0, 0);
-		text.setText(theme.fg("toolTitle", theme.bold("Set Todos")));
-		return text;
+		return renderToolTitle(theme, context.lastComponent, "Set Todos");
 	},
 	renderResult(_result, _options, theme) {
 		return renderTodos(todos, theme);
@@ -78,12 +74,7 @@ export const todosGetTool = defineTool({
 		};
 	},
 	renderCall(_args, theme, context) {
-		const text =
-			context.lastComponent instanceof Text
-				? context.lastComponent
-				: new Text("", 0, 0);
-		text.setText(theme.fg("toolTitle", theme.bold("Get Todos")));
-		return text;
+		return renderToolTitle(theme, context.lastComponent, "Get Todos");
 	},
 	renderResult(_result, _options, theme) {
 		return renderTodos(todos, theme);
