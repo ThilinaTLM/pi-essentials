@@ -18,6 +18,10 @@ type ModelInfo = {
 	explore: string | undefined;
 };
 
+type ModelLookup = {
+	find(provider: string, id: string): { name?: string; id: string } | undefined;
+};
+
 function getLogoColumns(theme: Theme): string[] {
 	const on = "██";
 	const off = "  ";
@@ -93,12 +97,25 @@ function shouldShowWelcome(
 export function registerWelcome(pi: ExtensionAPI): void {
 	let modelInfo: ModelInfo = { current: "no-model", explore: undefined };
 
+	function resolveModelLabel(
+		modelId: string | undefined,
+		registry?: ModelLookup,
+	): string | undefined {
+		if (!modelId) return undefined;
+		if (!registry) return modelId;
+		const [provider, id] = modelId.split("/", 2);
+		if (!provider || !id) return modelId;
+		const resolved = registry.find(provider, id);
+		return resolved ? resolved.name || resolved.id : modelId;
+	}
+
 	function updateModelInfo(
 		model: { name?: string; id: string } | undefined,
+		registry?: ModelLookup,
 	): void {
 		modelInfo = {
 			current: model ? model.name || model.id : "no-model",
-			explore: getSettings().exploreModel ?? undefined,
+			explore: resolveModelLabel(getSettings().exploreModel, registry),
 		};
 	}
 
@@ -114,7 +131,7 @@ export function registerWelcome(pi: ExtensionAPI): void {
 		}
 
 		await loadSettings();
-		updateModelInfo(ctx.model);
+		updateModelInfo(ctx.model, ctx.modelRegistry);
 
 		const entries = ctx.sessionManager.getEntries() as SessionEntryLike[];
 		if (!shouldShowWelcome(event.reason, entries)) {
@@ -135,8 +152,8 @@ export function registerWelcome(pi: ExtensionAPI): void {
 		);
 	});
 
-	pi.on("model_select", async (event) => {
-		updateModelInfo(event.model);
+	pi.on("model_select", async (event, ctx) => {
+		updateModelInfo(event.model, ctx.modelRegistry);
 	});
 
 	pi.on("context", async (event) => ({
