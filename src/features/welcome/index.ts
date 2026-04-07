@@ -1,5 +1,6 @@
 import type { ExtensionAPI, Theme } from "@mariozechner/pi-coding-agent";
-import { Text } from "@mariozechner/pi-tui";
+import { Text, visibleWidth } from "@mariozechner/pi-tui";
+import { getSettings, loadSettings } from "../../shared/settings.js";
 
 const WELCOME_MESSAGE_TYPE = "pi-welcome";
 const WELCOME_FALLBACK_TEXT = "Pi coding agent";
@@ -12,25 +13,58 @@ type SessionEntryLike = {
 	};
 };
 
-function getLogoLines(theme: Theme): string[] {
-	const indent = "  ";
+type ModelInfo = {
+	current: string;
+	explore: string | undefined;
+};
+
+function getLogoColumns(theme: Theme): string[] {
 	const on = "██";
 	const off = "  ";
 	const block = (cells: [number, number, number, number]) =>
-		theme.fg(
-			"text",
-			indent + cells.map((cell) => (cell === 1 ? on : off)).join(""),
-		);
-	const subtitle = `${indent}${theme.fg("muted", theme.bold("Pi coding agent"))}`;
+		theme.fg("text", cells.map((cell) => (cell === 1 ? on : off)).join(""));
 
 	return [
 		block([1, 1, 1, 0]),
 		block([1, 0, 1, 0]),
 		block([1, 1, 0, 1]),
 		block([1, 0, 0, 1]),
-		"",
-		subtitle,
 	];
+}
+
+function getModelLines(theme: Theme, info: ModelInfo, width: number): string[] {
+	const modelLabel = theme.fg("accent", info.current);
+	const exploreLabel = info.explore
+		? theme.fg("muted", info.explore)
+		: undefined;
+
+	const lines = ["", modelLabel, exploreLabel ?? "", ""];
+
+	const maxWidth = lines.reduce(
+		(max, line) => Math.max(max, visibleWidth(line)),
+		0,
+	);
+	const padWidth = Math.min(maxWidth, width);
+
+	return lines.map((line) => {
+		const pad = padWidth - visibleWidth(line);
+		return pad > 0 ? line + " ".repeat(pad) : line;
+	});
+}
+
+function getLogoLines(theme: Theme, info: ModelInfo): string[] {
+	const indent = "  ";
+	const gap = "   ";
+	const logo = getLogoColumns(theme);
+	const models = getModelLines(theme, info, 30);
+	const subtitle = theme.fg("muted", theme.bold("Pi coding agent"));
+
+	const combined = logo.map((logoLine, i) => {
+		const modelLine = models[i] ?? "";
+		return `${indent}${logoLine}${gap}${modelLine}`;
+	});
+
+	return [...combined, "", `${indent}${subtitle}`];
 }
 
 function hasWelcomeMessage(entries: SessionEntryLike[]): boolean {
@@ -57,16 +91,30 @@ function shouldShowWelcome(
 }
 
 export function registerWelcome(pi: ExtensionAPI): void {
+	let modelInfo: ModelInfo = { current: "no-model", explore: undefined };
+
+	function updateModelInfo(
+		model: { name?: string; id: string } | undefined,
+	): void {
+		modelInfo = {
+			current: model ? model.name || model.id : "no-model",
+			explore: getSettings().exploreModel ?? undefined,
+		};
+	}
+
 	pi.registerMessageRenderer(
 		WELCOME_MESSAGE_TYPE,
 		(_message, _options, theme) =>
-			new Text(getLogoLines(theme).join("\n"), 0, 0),
+			new Text(getLogoLines(theme, modelInfo).join("\n"), 0, 0),
 	);
 
 	pi.on("session_start", async (event, ctx) => {
 		if (!ctx.hasUI) {
 			return;
 		}
+
+		await loadSettings();
+		updateModelInfo(ctx.model);
 
 		const entries = ctx.sessionManager.getEntries() as SessionEntryLike[];
 		if (!shouldShowWelcome(event.reason, entries)) {
@@ -85,6 +133,10 @@ export function registerWelcome(pi: ExtensionAPI): void {
 			},
 			{ triggerTurn: false },
 		);
+	});
+
+	pi.on("model_select", async (event) => {
+		updateModelInfo(event.model);
 	});
 
 	pi.on("context", async (event) => ({
