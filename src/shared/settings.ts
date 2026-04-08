@@ -2,8 +2,11 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
+import type { PermissionLevel } from "../features/permissions/index.js";
+
 export interface PiEssentialsSettings {
 	exploreModel?: string;
+	permissionLevel?: PermissionLevel;
 }
 
 const AGENT_DIR = join(homedir(), ".pi", "agent");

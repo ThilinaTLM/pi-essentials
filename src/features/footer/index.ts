@@ -3,6 +3,10 @@ import type {
 	ExtensionContext,
 } from "@mariozechner/pi-coding-agent";
 import {
+	getFooterLeftItems,
+	onFooterLeftChange,
+} from "../../shared/footer-left.js";
+import {
 	aggregateUsage,
 	type FooterSegment,
 	formatBranch,
@@ -41,15 +45,21 @@ export function registerFooter(pi: ExtensionAPI): void {
 				tui.requestRender();
 			});
 
+			const unsubscribeLeft = onFooterLeftChange(() => {
+				tui.requestRender();
+			});
+
 			return {
 				invalidate() {},
 				dispose() {
 					unsubscribeBranch();
+					unsubscribeLeft();
 					renderRequest = undefined;
 				},
 				render(width: number): string[] {
 					const usage = aggregateUsage(ctx);
 					const leftSegments = [
+						...getFooterLeftItems().values(),
 						theme.fg("muted", shortenCwd(ctx.cwd)),
 						formatBranch(theme, footerData.getGitBranch(), gitDirty),
 					].filter((segment): segment is string => Boolean(segment));
