@@ -2,6 +2,8 @@
 
 My personal set of essential tools and UI tweaks for [pi coding agent](https://github.com/badlogic/pi-mono).
 
+![Preview](docs/preview.png)
+
 This is primarily built for my own workflow. You're welcome to use it too, but I may make breaking changes at any time without notice.
 
 ## Included
