@@ -1,6 +1,10 @@
 import type { ExtensionAPI, Theme } from "@mariozechner/pi-coding-agent";
 import { Text, visibleWidth } from "@mariozechner/pi-tui";
 import { getSettings, loadSettings } from "../../shared/settings.js";
+import {
+	getPermissionLevel,
+	type PermissionLevel,
+} from "../permissions/index.js";
 
 const WELCOME_MESSAGE_TYPE = "pi-welcome";
 const WELCOME_FALLBACK_TEXT = "Pi coding agent";
@@ -13,9 +17,10 @@ type SessionEntryLike = {
 	};
 };
 
-type ModelInfo = {
+type WelcomeInfo = {
 	current: string;
 	explore: string | undefined;
+	permissionLevel: PermissionLevel;
 };
 
 type ModelLookup = {
@@ -36,14 +41,20 @@ function getLogoColumns(theme: Theme): string[] {
 	];
 }
 
-function getModelLines(theme: Theme, info: ModelInfo, width: number): string[] {
+function getModelLines(
+	theme: Theme,
+	info: WelcomeInfo,
+	width: number,
+): string[] {
 	const heavy = `${theme.fg("accent", "●")} ${theme.fg("accent", info.current)}`;
 	const lite = info.explore
 		? `${theme.fg("muted", "○")} ${theme.fg("muted", info.explore)}`
 		: "";
-	const author = theme.fg("muted", "\u2387 @ThilinaTLM");
+	const permLabel =
+		info.permissionLevel === "supervised" ? "🔒 Supervised" : "🔓 Auto";
+	const perm = theme.fg("muted", permLabel);
 
-	const lines = [heavy, lite, "", author];
+	const lines = [heavy, lite, "", perm];
 
 	const maxWidth = lines.reduce(
 		(max, line) => Math.max(max, visibleWidth(line)),
@@ -57,7 +68,7 @@ function getModelLines(theme: Theme, info: ModelInfo, width: number): string[] {
 	});
 }
 
-function getLogoLines(theme: Theme, info: ModelInfo): string[] {
+function getLogoLines(theme: Theme, info: WelcomeInfo): string[] {
 	const indent = "  ";
 	const gap = "   ";
 	const logo = getLogoColumns(theme);
@@ -96,7 +107,11 @@ function shouldShowWelcome(
 }
 
 export function registerWelcome(pi: ExtensionAPI): void {
-	let modelInfo: ModelInfo = { current: "no-model", explore: undefined };
+	let info: WelcomeInfo = {
+		current: "no-model",
+		explore: undefined,
+		permissionLevel: "auto",
+	};
 
 	function resolveModelId(
 		modelId: string | undefined,
@@ -110,20 +125,21 @@ export function registerWelcome(pi: ExtensionAPI): void {
 		return resolved?.id ?? modelId;
 	}
 
-	function updateModelInfo(
+	function updateInfo(
 		model: { name?: string; id: string } | undefined,
 		registry?: ModelLookup,
 	): void {
-		modelInfo = {
+		info = {
 			current: model ? model.id : "no-model",
 			explore: resolveModelId(getSettings().exploreModel, registry),
+			permissionLevel: getPermissionLevel(),
 		};
 	}
 
 	pi.registerMessageRenderer(
 		WELCOME_MESSAGE_TYPE,
 		(_message, _options, theme) =>
-			new Text(getLogoLines(theme, modelInfo).join("\n"), 0, 0),
+			new Text(getLogoLines(theme, info).join("\n"), 0, 0),
 	);
 
 	pi.on("session_start", async (event, ctx) => {
@@ -132,7 +148,7 @@ export function registerWelcome(pi: ExtensionAPI): void {
 		}
 
 		await loadSettings();
-		updateModelInfo(ctx.model, ctx.modelRegistry);
+		updateInfo(ctx.model, ctx.modelRegistry);
 
 		const entries = ctx.sessionManager.getEntries() as SessionEntryLike[];
 		if (!shouldShowWelcome(event.reason, entries)) {
@@ -154,7 +170,7 @@ export function registerWelcome(pi: ExtensionAPI): void {
 	});
 
 	pi.on("model_select", async (event, ctx) => {
-		updateModelInfo(event.model, ctx.modelRegistry);
+		updateInfo(event.model, ctx.modelRegistry);
 	});
 
 	pi.on("context", async (event) => ({
