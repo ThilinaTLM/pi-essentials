@@ -4,9 +4,15 @@
 	"type": "module",
 	"private": true,
 	"description": "Essential tools for the pi coding agent: todos, web search, and web fetch",
+	"keywords": [
+		"pi-package"
+	],
 	"pi": {
 		"extensions": [
 			"./src/index.ts"
+		],
+		"themes": [
+			"./themes"
 		]
 	},
 	"scripts": {
