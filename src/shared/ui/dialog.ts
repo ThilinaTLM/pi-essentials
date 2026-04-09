@@ -157,7 +157,7 @@ export async function showDialog<T>(
 					resolveSelected();
 					return;
 				}
-				if (matchesKey(data, "escape")) {
+				if (matchesKey(data, "escape") || matchesKey(data, "ctrl+c")) {
 					done(null);
 					return;
 				}
