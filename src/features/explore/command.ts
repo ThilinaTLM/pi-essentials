@@ -48,7 +48,7 @@ export function registerExploreModelCommand(pi: ExtensionAPI): void {
 
 			settings.exploreModel = choice;
 			await saveSettings(settings);
-			ctx.ui.notify(`Explore model set to ${choice}`, "info");
+			ctx.ui.notify(`Explore model set to ${choice}.`, "info");
 		},
 	});
 }

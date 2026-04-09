@@ -3,7 +3,9 @@ import { defineTool } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { getSettings } from "../../shared/settings.js";
-import { renderToolTitle } from "../../shared/tool-ui.js";
+import { shortenModelId } from "../../shared/ui/model.js";
+import { statusPill } from "../../shared/ui/status.js";
+import { renderToolHeader } from "../../shared/ui/tool-header.js";
 import { registerExploreModelCommand } from "./command.js";
 import { formatToolCall, getDisplayItems, getFinalOutput } from "./format.js";
 import {
@@ -200,11 +202,10 @@ export const exploreTool = defineTool({
 	renderCall(args, theme, context) {
 		const agentCount = args.tasks?.length ?? (args.task ? 1 : 0);
 		const label = agentCount === 1 ? "agent" : "agents";
-		return renderToolTitle(
-			theme,
-			context.lastComponent,
-			`Explore (${agentCount} ${label})`,
-		);
+		return renderToolHeader(theme, context.lastComponent, {
+			title: "Explore",
+			arg: `${agentCount} ${label}`,
+		});
 	},
 
 	renderResult(result, _options, theme) {
@@ -229,12 +230,14 @@ export const exploreTool = defineTool({
 			r.exitCode > 0 || r.stopReason === "error" || r.stopReason === "aborted";
 		const getStatusBadge = (r: ExploreResult) => {
 			if (r.exitCode === -1) {
-				return getToolCalls(r).length === 0
-					? theme.fg("warning", "[starting]")
-					: theme.fg("warning", "[exploring]");
+				return statusPill(
+					theme,
+					"pending",
+					getToolCalls(r).length === 0 ? "starting" : "exploring",
+				);
 			}
-			if (isResultError(r)) return theme.fg("error", "[failed]");
-			return theme.fg("success", "[done]");
+			if (isResultError(r)) return statusPill(theme, "fail", "failed");
+			return statusPill(theme, "ok", "done");
 		};
 		const getRecentSteps = (r: ExploreResult) => {
 			const toolCalls = getToolCalls(r);
@@ -244,17 +247,6 @@ export const exploreTool = defineTool({
 				remaining: Math.max(0, toolCalls.length - recent.length),
 			};
 		};
-		const shortModel = (model?: string) => {
-			if (!model) return "";
-			const id = model.includes("/")
-				? (model.split("/").pop() ?? model)
-				: model;
-			return id
-				.replace(/^claude-/i, "")
-				.replace(/-\d{8}$/, "")
-				.replace(/-latest$/, "");
-		};
-
 		const renderAgentLines = (
 			r: ExploreResult,
 			index: number,
@@ -264,7 +256,7 @@ export const exploreTool = defineTool({
 			const agentPrefix = isLastAgent ? "└──" : "├──";
 			const childPrefix = isLastAgent ? "    " : "│   ";
 			const modelTag = r.model
-				? ` ${theme.fg("muted", `(${shortModel(r.model)})`)}`
+				? ` ${theme.fg("muted", `(${shortenModelId(r.model)})`)}`
 				: "";
 			const lines = [
 				`${theme.fg("muted", agentPrefix)} ${theme.fg("muted", `A${index + 1}`)}${modelTag} ${getStatusBadge(r)} ${theme.fg("dim", preview(r.task))}`,

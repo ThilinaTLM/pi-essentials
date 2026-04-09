@@ -1,6 +1,8 @@
 import type { ExtensionAPI, Theme } from "@mariozechner/pi-coding-agent";
 import { Text, visibleWidth } from "@mariozechner/pi-tui";
 import { getSettings, loadSettings } from "../../shared/settings.js";
+import { formatModelLabel } from "../../shared/ui/model.js";
+import { statusGlyph } from "../../shared/ui/status.js";
 import {
 	getPermissionLevel,
 	type PermissionLevel,
@@ -46,13 +48,14 @@ function getModelLines(
 	info: WelcomeInfo,
 	width: number,
 ): string[] {
-	const heavy = `${theme.fg("accent", "●")} ${theme.fg("accent", info.current)}`;
+	const heavy = `${statusGlyph(theme, "active")} ${theme.fg("accent", info.current)}`;
 	const lite = info.explore
-		? `${theme.fg("muted", "○")} ${theme.fg("muted", info.explore)}`
+		? `${statusGlyph(theme, "idle")} ${theme.fg("muted", info.explore)}`
 		: "";
-	const permLabel =
-		info.permissionLevel === "supervised" ? "🔒 Supervised" : "🔓 Auto";
-	const perm = theme.fg("muted", permLabel);
+	const perm =
+		info.permissionLevel === "supervised"
+			? `${statusGlyph(theme, "idle")} ${theme.fg("muted", "Supervised")}`
+			: `${statusGlyph(theme, "active")} ${theme.fg("accent", "Auto")}`;
 
 	const lines = [heavy, lite, "", perm];
 
@@ -122,7 +125,7 @@ export function registerWelcome(pi: ExtensionAPI): void {
 		const [provider, id] = modelId.split("/", 2);
 		if (!provider || !id) return modelId;
 		const resolved = registry.find(provider, id);
-		return resolved?.id ?? modelId;
+		return resolved ? formatModelLabel(resolved) : modelId;
 	}
 
 	function updateInfo(
@@ -130,7 +133,7 @@ export function registerWelcome(pi: ExtensionAPI): void {
 		registry?: ModelLookup,
 	): void {
 		info = {
-			current: model ? model.id : "no-model",
+			current: formatModelLabel(model),
 			explore: resolveModelId(getSettings().exploreModel, registry),
 			permissionLevel: getPermissionLevel(),
 		};

@@ -4,9 +4,10 @@ import type {
 	ExtensionAPI,
 	ExtensionContext,
 } from "@mariozechner/pi-coding-agent";
+import { formatModelLabel } from "../../shared/ui/model.js";
+import { SEP } from "../../shared/ui/palette.js";
 
 const BRANCH_GLYPH = "";
-const SEP = " · ";
 
 export type ThemeLike = ExtensionContext["ui"]["theme"];
 
@@ -127,9 +128,7 @@ export function formatCost(theme: ThemeLike, usage: AggregatedUsage): string {
 }
 
 export function formatModel(theme: ThemeLike, ctx: ExtensionContext): string {
-	const model = ctx.model;
-	const label = model ? model.name || model.id : "no-model";
-	return theme.fg("accent", label);
+	return theme.fg("accent", formatModelLabel(ctx.model));
 }
 
 export function formatThinking(theme: ThemeLike, pi: ExtensionAPI): string {

@@ -1,7 +1,8 @@
 import { defineTool } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
-import { renderToolTitle } from "../../shared/tool-ui.js";
+import { statusGlyph } from "../../shared/ui/status.js";
+import { renderToolHeader } from "../../shared/ui/tool-header.js";
 
 interface TavilyResult {
 	title: string;
@@ -81,12 +82,10 @@ export const webSearchTool = defineTool({
 		};
 	},
 	renderCall(args, theme, context) {
-		return renderToolTitle(
-			theme,
-			context.lastComponent,
-			"Web Search",
-			` ${theme.fg("accent", args.query)}`,
-		);
+		return renderToolHeader(theme, context.lastComponent, {
+			title: "Web Search",
+			arg: args.query,
+		});
 	},
 	renderResult(result, _options, theme) {
 		const details = result.details as SearchDetails | undefined;
@@ -95,13 +94,10 @@ export const webSearchTool = defineTool({
 		}
 		const lines: string[] = [];
 		if (details.answer) {
-			lines.push(theme.fg("success", "Answer: ") + details.answer, "");
+			lines.push(`${statusGlyph(theme, "ok")} ${details.answer}`, "");
 		}
 		for (const r of details.results) {
-			lines.push(
-				theme.fg("text", theme.bold(r.title)),
-				theme.fg("muted", r.url),
-			);
+			lines.push(theme.fg("text", theme.bold(r.title)), theme.fg("dim", r.url));
 		}
 		return new Text(lines.join("\n"), 0, 0);
 	},

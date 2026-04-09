@@ -2,7 +2,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import { defineTool } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
-import { renderToolTitle } from "../../shared/tool-ui.js";
+import { renderToolHeader } from "../../shared/ui/tool-header.js";
 import { PLANS_DIR } from "./guards.js";
 import { enterPlanMode, exitPlanMode, isPlanActive } from "./state.js";
 import {
@@ -45,7 +45,9 @@ export const planEnterTool = defineTool({
 		};
 	},
 	renderCall(_args, theme, context) {
-		return renderToolTitle(theme, context.lastComponent, "Enter Plan Mode");
+		return renderToolHeader(theme, context.lastComponent, {
+			title: "Enter Plan Mode",
+		});
 	},
 	renderResult(_result, _options, theme) {
 		return new Text(theme.fg("success", "Plan mode active"), 0, 0);
@@ -72,7 +74,9 @@ export const planForceExitTool = defineTool({
 		};
 	},
 	renderCall(_args, theme, context) {
-		return renderToolTitle(theme, context.lastComponent, "Exit Plan Mode");
+		return renderToolHeader(theme, context.lastComponent, {
+			title: "Exit Plan Mode",
+		});
 	},
 	renderResult(_result, _options, theme) {
 		return new Text(theme.fg("muted", "Plan mode exited."), 0, 0);
@@ -106,8 +110,8 @@ export const planPresentTool = defineTool({
 			);
 		}
 
-		const choice = await presentPlanReview(context, content);
-		if (choice === "Accept & Execute") {
+		const choice = await presentPlanReview(context, params.file_path, content);
+		if (choice === "accept") {
 			exitPlanMode(context);
 			return {
 				content: [
@@ -140,7 +144,7 @@ export const planPresentTool = defineTool({
 		};
 	},
 	renderCall(_args, theme, context) {
-		return renderToolTitle(theme, context.lastComponent, "Plan");
+		return renderToolHeader(theme, context.lastComponent, { title: "Plan" });
 	},
 	renderResult(result, _options, theme) {
 		return renderPlanPresentationResult(

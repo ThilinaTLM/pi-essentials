@@ -1,7 +1,8 @@
 import { defineTool, type Theme } from "@mariozechner/pi-coding-agent";
-import { Text } from "@mariozechner/pi-tui";
+import { Container, Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
-import { renderToolTitle } from "../../shared/tool-ui.js";
+import { statusGlyph } from "../../shared/ui/status.js";
+import { renderToolHeader } from "../../shared/ui/tool-header.js";
 
 interface TodoItem {
 	todo: string;
@@ -14,20 +15,20 @@ function snapshot(): TodoItem[] {
 	return todos.map((t) => ({ ...t }));
 }
 
-function renderTodos(items: TodoItem[], theme: Theme): Text {
+function buildTodoBody(items: TodoItem[], theme: Theme): Container {
+	const body = new Container();
 	if (items.length === 0) {
-		return new Text(theme.fg("muted", "No todos set."), 0, 0);
+		body.addChild(new Text(theme.fg("muted", "No todos set."), 0, 0));
+		return body;
 	}
-	const lines = items.map((item) => {
-		if (item.done) {
-			return (
-				theme.fg("success", "✓ ") +
-				theme.fg("muted", theme.strikethrough(item.todo))
-			);
-		}
-		return theme.fg("warning", "○ ") + theme.fg("text", item.todo);
-	});
-	return new Text(lines.join("\n"), 0, 0);
+	for (const item of items) {
+		const glyph = statusGlyph(theme, item.done ? "ok" : "idle");
+		const label = item.done
+			? theme.fg("muted", theme.strikethrough(item.todo))
+			: theme.fg("text", item.todo);
+		body.addChild(new Text(`${glyph}  ${label}`, 0, 0));
+	}
+	return body;
 }
 
 export const todosSetTool = defineTool({
@@ -55,10 +56,12 @@ export const todosSetTool = defineTool({
 		};
 	},
 	renderCall(_args, theme, context) {
-		return renderToolTitle(theme, context.lastComponent, "Set Todos");
+		return renderToolHeader(theme, context.lastComponent, {
+			title: "Set Todos",
+		});
 	},
 	renderResult(_result, _options, theme) {
-		return renderTodos(todos, theme);
+		return buildTodoBody(todos, theme);
 	},
 });
 
@@ -74,9 +77,11 @@ export const todosGetTool = defineTool({
 		};
 	},
 	renderCall(_args, theme, context) {
-		return renderToolTitle(theme, context.lastComponent, "Get Todos");
+		return renderToolHeader(theme, context.lastComponent, {
+			title: "Get Todos",
+		});
 	},
 	renderResult(_result, _options, theme) {
-		return renderTodos(todos, theme);
+		return buildTodoBody(todos, theme);
 	},
 });

@@ -5,7 +5,9 @@ import { defineTool } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { NodeHtmlMarkdown } from "node-html-markdown";
-import { renderToolTitle } from "../../shared/tool-ui.js";
+import { SEP } from "../../shared/ui/palette.js";
+import { statusGlyph } from "../../shared/ui/status.js";
+import { renderToolHeader } from "../../shared/ui/tool-header.js";
 
 const MAX_INLINE_BYTES = 512 * 1024; // 512 KB
 const TMP_DIR = "/tmp/pi-fetch";
@@ -179,13 +181,11 @@ export const webFetchTool = defineTool({
 		};
 	},
 	renderCall(args, theme, context) {
-		const rawTag = args.raw ? theme.fg("warning", " [raw]") : "";
-		return renderToolTitle(
-			theme,
-			context.lastComponent,
-			"Web Fetch",
-			` ${theme.fg("accent", args.url)}${rawTag}`,
-		);
+		return renderToolHeader(theme, context.lastComponent, {
+			title: "Web Fetch",
+			arg: args.url,
+			tag: args.raw ? { text: "raw", tone: "warning" } : undefined,
+		});
 	},
 	renderResult(result, _options, theme) {
 		const details = result.details as FetchDetails | undefined;
@@ -193,9 +193,14 @@ export const webFetchTool = defineTool({
 			return new Text(theme.fg("muted", "No response."), 0, 0);
 		}
 
+		const statusKind = details.status < 400 ? "ok" : "fail";
 		const statusColor = details.status < 400 ? "success" : "error";
+		const statusText = `${statusGlyph(theme, statusKind)} ${theme.fg(
+			statusColor,
+			`${details.status}`,
+		)}`;
 		const parts = [
-			theme.fg(statusColor, `${details.status}`),
+			statusText,
 			theme.fg("muted", details.contentType),
 			theme.fg("muted", formatSize(details.size)),
 		];
@@ -203,10 +208,11 @@ export const webFetchTool = defineTool({
 			parts.push(theme.fg("success", "→ markdown"));
 		}
 
-		const lines = [parts.join(theme.fg("muted", " · "))];
+		const sep = theme.fg("borderMuted", SEP);
+		const lines = [parts.join(sep)];
 
 		if (details.savedTo) {
-			lines.push(theme.fg("accent", details.savedTo));
+			lines.push(theme.fg("dim", details.savedTo));
 		}
 
 		return new Text(lines.join("\n"), 0, 0);

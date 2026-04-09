@@ -1,9 +1,11 @@
 import type {
 	ExtensionAPI,
 	ExtensionContext,
+	Theme,
 } from "@mariozechner/pi-coding-agent";
 import { setFooterLeftItem } from "../../shared/footer-left.js";
 import { loadSettings, saveSettings } from "../../shared/settings.js";
+import { statusGlyph } from "../../shared/ui/status.js";
 import { isMutatingTool, summarizeToolCall } from "./classify.js";
 import { showApprovalDialog } from "./ui.js";
 
@@ -16,10 +18,10 @@ export function getPermissionLevel(): PermissionLevel {
 }
 
 export function registerPermissions(pi: ExtensionAPI): void {
-	pi.on("session_start", async (_event) => {
+	pi.on("session_start", async (_event, ctx) => {
 		const settings = await loadSettings();
 		currentLevel = settings.permissionLevel ?? "auto";
-		updateStatus();
+		updateStatus(ctx.ui.theme);
 	});
 
 	pi.on("tool_call", async (event, ctx) => {
@@ -80,14 +82,17 @@ async function setLevel(
 	settings.permissionLevel = level;
 	await saveSettings(settings);
 
-	updateStatus();
-	const label = level === "supervised" ? "🔒 Supervised" : "🔓 Auto";
-	ctx.ui.notify(`Permission level: ${label}`, "info");
+	updateStatus(ctx.ui.theme);
+	const label = level === "supervised" ? "Supervised" : "Auto";
+	ctx.ui.notify(`Permission level: ${label}.`, "info");
 }
 
-function updateStatus(): void {
+function updateStatus(theme: Theme): void {
 	if (currentLevel === "supervised") {
-		setFooterLeftItem("permissions", "🔒");
+		setFooterLeftItem(
+			"permissions",
+			`${statusGlyph(theme, "idle")} ${theme.fg("muted", "supervised")}`,
+		);
 	} else {
 		setFooterLeftItem("permissions", undefined);
 	}
