@@ -12,10 +12,11 @@ import {
 	formatBranch,
 	formatContext,
 	formatCost,
-	formatModel,
-	formatThinking,
+	formatModelWithThinking,
 	formatTokenCount,
 	joinSegments,
+	LEFT_SEP,
+	RIGHT_SEP,
 	shortenCwd,
 } from "./format.js";
 import { isGitDirty } from "./git.js";
@@ -76,15 +77,24 @@ export function registerFooter(pi: ExtensionAPI): void {
 						{ key: "context", text: formatContext(theme, ctx), required: true },
 						...(tokenSegment ? [{ key: "tokens", text: tokenSegment }] : []),
 						{ key: "cost", text: formatCost(theme, usage) },
-						{ key: "model", text: formatModel(theme, ctx), required: true },
-						{ key: "thinking", text: formatThinking(theme, pi) },
+						{
+							key: "model",
+							text: formatModelWithThinking(theme, ctx, pi),
+							required: true,
+						},
 						...statusSegments,
 					].filter((segment): segment is FooterSegment =>
 						Boolean(segment.text),
 					);
 
-					const left = joinSegments(theme, leftSegments);
-					const line = buildFooterLine(theme, width, left, rightSegments);
+					const left = joinSegments(theme, leftSegments, LEFT_SEP);
+					const line = buildFooterLine(
+						theme,
+						width,
+						left,
+						rightSegments,
+						RIGHT_SEP,
+					);
 					return [line];
 				},
 			};

@@ -13,14 +13,16 @@ export function buildFooterLine(
 	width: number,
 	left: string,
 	rightSegments: FooterSegment[],
+	rightSeparator: string,
 ): string {
-	const dropOrder = ["status", "cost", "tokens", "thinking", "model"];
+	const dropOrder = ["status", "cost", "tokens", "model"];
 	const activeSegments = [...rightSegments];
 
 	const getRight = () =>
 		joinSegments(
 			theme,
 			activeSegments.map((segment) => segment.text),
+			rightSeparator,
 		);
 	const totalWidth = (leftText: string, rightText: string) =>
 		visibleWidth(leftText) +

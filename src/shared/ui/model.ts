@@ -29,3 +29,39 @@ export function shortenModelId(id: string): string {
 		.replace(/-\d{8}$/, "")
 		.replace(/-latest$/, "");
 }
+
+// Display form: "Claude Opus 4.6" -> "Opus 4.6", "opus-4-6" -> "Opus 4.6".
+// Prefers the provider's display name; falls back to a prettified short ID.
+export function prettyModelLabel(model: ModelLike | undefined): string {
+	if (!model) return "no-model";
+	if (model.name) {
+		return model.name.replace(/^Claude\s+/i, "");
+	}
+	return prettifyModelId(shortenModelId(model.id));
+}
+
+function prettifyModelId(id: string): string {
+	const parts = id.split("-");
+	const out: string[] = [];
+	let numBuf: string[] = [];
+	const flushNum = () => {
+		if (numBuf.length > 0) {
+			out.push(numBuf.join("."));
+			numBuf = [];
+		}
+	};
+	for (const part of parts) {
+		if (/^\d+$/.test(part)) {
+			numBuf.push(part);
+			continue;
+		}
+		flushNum();
+		if (/^(gpt|ai|llm)$/i.test(part)) {
+			out.push(part.toUpperCase());
+		} else {
+			out.push(part.charAt(0).toUpperCase() + part.slice(1));
+		}
+	}
+	flushNum();
+	return out.join(" ");
+}

@@ -3,11 +3,16 @@ import { sep } from "node:path";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
+	ThemeColor,
 } from "@mariozechner/pi-coding-agent";
-import { formatModelLabel } from "../../shared/ui/model.js";
-import { SEP } from "../../shared/ui/palette.js";
+import { prettyModelLabel } from "../../shared/ui/model.js";
 
 const BRANCH_GLYPH = "";
+
+const CONTEXT_GLYPH = "󰍛";
+
+export const LEFT_SEP = " │ ";
+export const RIGHT_SEP = "  ";
 
 export type ThemeLike = ExtensionContext["ui"]["theme"];
 
@@ -75,9 +80,14 @@ export function formatCostValue(cost: number): string {
 	return `$${cost.toFixed(3)}`;
 }
 
-export function joinSegments(theme: ThemeLike, segments: string[]): string {
+export function joinSegments(
+	theme: ThemeLike,
+	segments: string[],
+	separator: string = LEFT_SEP,
+): string {
 	const items = segments.filter((segment) => segment.length > 0);
-	return items.join(theme.fg("dim", SEP));
+	if (items.length <= 1) return items.join("");
+	return items.join(theme.fg("dim", separator));
 }
 
 export function aggregateUsage(ctx: ExtensionContext): AggregatedUsage {
@@ -99,7 +109,10 @@ export function aggregateUsage(ctx: ExtensionContext): AggregatedUsage {
 export function formatContext(theme: ThemeLike, ctx: ExtensionContext): string {
 	const usage = ctx.getContextUsage();
 	const percent = usage?.percent;
-	const text = percent == null ? "ctx --" : `ctx ${Math.round(percent)}%`;
+	const text =
+		percent == null
+			? `${CONTEXT_GLYPH} --`
+			: `${CONTEXT_GLYPH} ${Math.round(percent)}%`;
 
 	if (percent == null) {
 		return theme.fg("dim", text);
@@ -127,25 +140,35 @@ export function formatCost(theme: ThemeLike, usage: AggregatedUsage): string {
 	return theme.fg("dim", formatCostValue(usage.totalCost));
 }
 
-export function formatModel(theme: ThemeLike, ctx: ExtensionContext): string {
-	return theme.fg("accent", formatModelLabel(ctx.model));
+export function formatModelWithThinking(
+	theme: ThemeLike,
+	ctx: ExtensionContext,
+	pi: ExtensionAPI,
+): string {
+	const model = theme.fg("accent", prettyModelLabel(ctx.model));
+	const level = pi.getThinkingLevel();
+	if (level === "off") {
+		return model;
+	}
+
+	const token: ThemeColor =
+		level === "minimal"
+			? "thinkingMinimal"
+			: level === "low"
+				? "thinkingLow"
+				: level === "medium"
+					? "thinkingMedium"
+					: level === "high"
+						? "thinkingHigh"
+						: "thinkingXhigh";
+
+	const thinking = theme.fg(token, `(${titleCaseThinking(level)})`);
+	return `${model} ${thinking}`;
 }
 
-export function formatThinking(theme: ThemeLike, pi: ExtensionAPI): string {
-	const level = pi.getThinkingLevel();
-	const token =
-		level === "off"
-			? "dim"
-			: level === "minimal"
-				? "thinkingMinimal"
-				: level === "low"
-					? "thinkingLow"
-					: level === "medium"
-						? "thinkingMedium"
-						: level === "high"
-							? "thinkingHigh"
-							: "thinkingXhigh";
-	return theme.fg(token, level);
+function titleCaseThinking(level: string): string {
+	if (level === "xhigh") return "XHigh";
+	return level.charAt(0).toUpperCase() + level.slice(1);
 }
 
 export function formatBranch(
