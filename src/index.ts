@@ -3,6 +3,7 @@ import { registerExplore } from "./features/explore/index.js";
 import { registerFooter } from "./features/footer/index.js";
 import { registerPermissions } from "./features/permissions/index.js";
 import { registerPlan } from "./features/plan/index.js";
+import { registerSystemPromptOverride } from "./features/system-prompt/index.js";
 import { registerWelcome } from "./features/welcome/index.js";
 import { loadSettings } from "./shared/settings.js";
 import { todosGetTool, todosSetTool } from "./tools/todo/index.js";
@@ -16,6 +17,7 @@ export default function (pi: ExtensionAPI) {
 	pi.registerTool(webFetchTool);
 	registerExplore(pi);
 	registerPermissions(pi);
+	registerSystemPromptOverride(pi);
 	registerPlan(pi);
 	registerFooter(pi);
 	registerWelcome(pi);
