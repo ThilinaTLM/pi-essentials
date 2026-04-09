@@ -36,10 +36,14 @@ export class Panel implements Component {
 	}
 
 	render(width: number): string[] {
-		const contentWidth = Math.max(1, width - 4);
+		// One-column horizontal margin on each side so the block doesn't
+		// butt up against the terminal edges.
+		const indent = " ";
+		const blockWidth = Math.max(1, width - 2);
+		const contentWidth = Math.max(1, blockWidth - 4);
 		const lines: string[] = [];
 
-		lines.push(this.drawTitledBorder(width, this.title, "top"));
+		lines.push(this.drawTitledBorder(blockWidth, this.title, "top"));
 		// Breathing room below the top title so first-section content
 		// doesn't butt up against the border.
 		lines.push(this.drawContentLine("", contentWidth));
@@ -49,7 +53,7 @@ export class Panel implements Component {
 			if (i > 0) {
 				// Blank line caps the previous section before the divider.
 				lines.push(this.drawContentLine("", contentWidth));
-				lines.push(this.drawTitledBorder(width, section.label, "mid"));
+				lines.push(this.drawTitledBorder(blockWidth, section.label, "mid"));
 			}
 			const childLines = section.content.render(contentWidth);
 			for (const childLine of childLines) {
@@ -57,8 +61,8 @@ export class Panel implements Component {
 			}
 		}
 
-		lines.push(this.drawBottomBorder(width));
-		return lines;
+		lines.push(this.drawBottomBorder(blockWidth));
+		return lines.map((line) => `${indent}${line}`);
 	}
 
 	private color(s: string): string {

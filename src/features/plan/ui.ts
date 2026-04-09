@@ -42,7 +42,6 @@ export async function presentPlanReview(
 		sections: [
 			{ content: body },
 			{
-				label: "Decision",
 				options: [
 					{ id: "accept", label: "Accept & Execute" },
 					{ id: "changes", label: "Request Changes" },

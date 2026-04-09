@@ -1,6 +1,7 @@
-import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionContext, Theme } from "@mariozechner/pi-coding-agent";
 import { Container, Text } from "@mariozechner/pi-tui";
 import { showDialog } from "../../shared/ui/dialog.js";
+import { formatToolHeader } from "../../shared/ui/tool-header.js";
 
 export type ApprovalResult =
 	| { action: "allow" }
@@ -17,15 +18,23 @@ export async function showApprovalDialog(
 ): Promise<ApprovalResult> {
 	const theme = ctx.ui.theme;
 	const body = new Container();
-	body.addChild(new Text(theme.bold(toolName), 0, 0));
-	buildToolDetails(body, toolName, input, theme);
+	body.addChild(
+		new Text(
+			formatToolHeader(theme, {
+				title: capitalize(toolName),
+				arg: getToolArg(toolName, input),
+			}),
+			0,
+			0,
+		),
+	);
+	buildExtraDetails(body, toolName, input, theme);
 
 	const result = await showDialog<Choice>(ctx, {
 		title: "Confirmation",
 		sections: [
 			{ content: body },
 			{
-				label: "Decision",
 				options: [
 					{ id: "allow", label: "Allow" },
 					{ id: "reject", label: "Reject" },
@@ -47,22 +56,34 @@ export async function showApprovalDialog(
 	return { action: "reject" };
 }
 
-function buildToolDetails(
+function capitalize(name: string): string {
+	if (!name) return name;
+	return name[0].toUpperCase() + name.slice(1);
+}
+
+function getToolArg(
+	toolName: string,
+	input: Record<string, unknown>,
+): string | undefined {
+	switch (toolName) {
+		case "bash":
+			return typeof input.command === "string" ? input.command : undefined;
+		case "edit":
+		case "write":
+			return typeof input.path === "string" ? input.path : "unknown file";
+		default:
+			return undefined;
+	}
+}
+
+function buildExtraDetails(
 	container: Container,
 	toolName: string,
 	input: Record<string, unknown>,
-	theme: ExtensionContext["ui"]["theme"],
+	theme: Theme,
 ): void {
 	switch (toolName) {
-		case "bash": {
-			const cmd = typeof input.command === "string" ? input.command : "";
-			container.addChild(new Text("", 0, 0));
-			container.addChild(new Text(theme.fg("muted", `$ ${cmd}`), 0, 0));
-			break;
-		}
 		case "edit": {
-			const path = (input.path as string) ?? "unknown file";
-			container.addChild(new Text(theme.fg("dim", path), 0, 0));
 			const edits = Array.isArray(input.edits)
 				? (input.edits as Array<{ oldText: string; newText: string }>)
 				: [];
@@ -90,9 +111,7 @@ function buildToolDetails(
 			break;
 		}
 		case "write": {
-			const path = (input.path as string) ?? "unknown file";
 			const content = typeof input.content === "string" ? input.content : "";
-			container.addChild(new Text(theme.fg("dim", path), 0, 0));
 			container.addChild(new Text("", 0, 0));
 			const lines = content.split("\n");
 			const shown = lines.slice(0, MAX_CONTENT_LINES);
