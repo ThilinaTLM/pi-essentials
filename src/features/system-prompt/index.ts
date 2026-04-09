@@ -36,16 +36,22 @@ function removePiDocumentationSection(systemPrompt: string): string {
 	return `${systemPrompt.slice(0, start)}${systemPrompt.slice(end)}`;
 }
 
-function transformSystemPrompt(systemPrompt: string): string {
-	return removePiDocumentationSection(
-		replaceFirstSentenceProductName(systemPrompt),
-	);
+function transformSystemPrompt(
+	systemPrompt: string,
+	provider: string | undefined,
+): string {
+	const withoutDocs = removePiDocumentationSection(systemPrompt);
+	if (provider !== "anthropic") return withoutDocs;
+	return replaceFirstSentenceProductName(withoutDocs);
 }
 
 export function registerSystemPromptOverride(pi: ExtensionAPI): void {
-	pi.on("before_agent_start", async (event) => {
+	pi.on("before_agent_start", async (event, ctx) => {
 		return {
-			systemPrompt: transformSystemPrompt(event.systemPrompt),
+			systemPrompt: transformSystemPrompt(
+				event.systemPrompt,
+				ctx.model?.provider,
+			),
 		};
 	});
 }
