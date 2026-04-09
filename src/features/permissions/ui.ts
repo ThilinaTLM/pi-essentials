@@ -32,7 +32,7 @@ export async function showApprovalDialog(
 					{
 						id: "reject_with_reason",
 						label: "Reject with reason",
-						captureInput: {},
+						captureInput: { placeholder: "Type reason here" },
 					},
 				],
 			},

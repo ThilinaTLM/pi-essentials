@@ -81,20 +81,20 @@ export async function showDialog<T>(
 			const number = `${index + 1}.`;
 			const active = index === selected;
 			const capturing = active && slot.option.captureInput !== undefined;
-			const numColor = active ? "accent" : "muted";
-			const labelColor: ThemeColor = active ? "accent" : "text";
+			// Selected options use `warning` so they don't blend with the
+			// `accent`-colored title/border text.
+			const numColor: ThemeColor = active ? "warning" : "muted";
+			const labelColor: ThemeColor = active ? "warning" : "text";
+			const num = theme.fg(numColor, number);
 
-			let label = slot.option.label;
 			if (capturing) {
 				if (slot.buffer) {
-					label = `${slot.option.label}: ${slot.buffer}`;
-				} else if (slot.option.captureInput?.placeholder) {
-					label = `${slot.option.label}: ${slot.option.captureInput.placeholder}`;
-				} else {
-					label = `${slot.option.label}:`;
+					return `${num} ${theme.fg("text", slot.buffer)}`;
 				}
+				const hint = slot.option.captureInput?.placeholder ?? slot.option.label;
+				return `${num} ${theme.fg("dim", hint)}`;
 			}
-			return `${theme.fg(numColor, number)} ${theme.fg(labelColor, label)}`;
+			return `${num} ${theme.fg(labelColor, slot.option.label)}`;
 		};
 
 		const refresh = () => {
@@ -166,7 +166,11 @@ export async function showDialog<T>(
 					if (index < slots.length) {
 						selected = index;
 						refresh();
-						resolveSelected();
+						// If the target captures input, just move focus — let the
+						// user type their reason, then press enter.
+						if (!slots[index].option.captureInput) {
+							resolveSelected();
+						}
 					}
 				}
 			},

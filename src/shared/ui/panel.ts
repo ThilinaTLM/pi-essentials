@@ -40,18 +40,21 @@ export class Panel implements Component {
 		const lines: string[] = [];
 
 		lines.push(this.drawTitledBorder(width, this.title, "top"));
+		// Breathing room below the top title so first-section content
+		// doesn't butt up against the border.
+		lines.push(this.drawContentLine("", contentWidth));
 
 		for (let i = 0; i < this.sections.length; i++) {
 			const section = this.sections[i];
 			if (i > 0) {
+				// Blank line caps the previous section before the divider.
+				lines.push(this.drawContentLine("", contentWidth));
 				lines.push(this.drawTitledBorder(width, section.label, "mid"));
 			}
-			lines.push(this.drawBlankLine(width));
 			const childLines = section.content.render(contentWidth);
 			for (const childLine of childLines) {
 				lines.push(this.drawContentLine(childLine, contentWidth));
 			}
-			lines.push(this.drawBlankLine(width));
 		}
 
 		lines.push(this.drawBottomBorder(width));
@@ -100,11 +103,6 @@ export class Panel implements Component {
 	private drawBottomBorder(width: number): string {
 		const inner = Math.max(0, width - 2);
 		return this.color(BOX.bl + BOX.h.repeat(inner) + BOX.br);
-	}
-
-	private drawBlankLine(width: number): string {
-		const inner = Math.max(0, width - 2);
-		return this.color(BOX.v) + " ".repeat(inner) + this.color(BOX.v);
 	}
 
 	private drawContentLine(line: string, contentWidth: number): string {
