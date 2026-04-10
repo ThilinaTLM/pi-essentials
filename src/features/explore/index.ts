@@ -28,7 +28,7 @@ export const exploreTool = defineTool({
 		'Single mode: { task: "..." }. Parallel mode: { tasks: [{ task: "..." }, ...] } (max 5).',
 		"When to use: Do a quick high-level scan first (grep/find) to assess scope before using the explore tool.",
 		"If the answer needs reading many files, tracing cross-module dependencies, or understanding a subsystem, dispatch explore agents for the heavy reading.",
-		"Use parallel mode when investigating several independent areas.",
+		"Use parallel mode when investigating several independent areas. Use the fewest agents necessary — group related questions into a single agent when they touch the same area of the codebase. Only split into separate agents when the investigations are truly independent (different modules, different subsystems).",
 		"Do NOT use for simple lookups you can answer with a few read/grep calls.",
 		"Optionally pass context to share what you already know with the sub-agent.",
 	].join(" "),
