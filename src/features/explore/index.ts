@@ -24,13 +24,13 @@ export const exploreTool = defineTool({
 	name: "explore",
 	label: "Explore",
 	description: [
-		"Spawn read-only sub-agents to explore the codebase in isolated processes.",
-		'Single mode: { task: "..." }. Parallel mode: { tasks: [{ task: "..." }, ...] } (max 5).',
-		"When to use: Do a quick high-level scan first (grep/find) to assess scope before using the explore tool.",
-		"If the answer needs reading many files, tracing cross-module dependencies, or understanding a subsystem, dispatch explore agents for the heavy reading.",
-		"Use parallel mode when investigating several independent areas. Use the fewest agents necessary — group related questions into a single agent when they touch the same area of the codebase. Only split into separate agents when the investigations are truly independent (different modules, different subsystems).",
-		"Do NOT use for simple lookups you can answer with a few read/grep calls.",
-		"Optionally pass context to share what you already know with the sub-agent.",
+		"Spawn read-only sub-agents to investigate the codebase in isolated processes.",
+		'Single mode: { task: "...", context: "..." }. Parallel mode: { tasks: [{ task: "..." }, ...], context: "...", split_rationale: "..." } (max 5).',
+		"Before using this tool, do your own quick grep/find/read lookup to size the problem.",
+		"Use explore only when the remaining work requires reading many files, tracing dependencies, or understanding a subsystem.",
+		"Always pass context summarizing what you already checked, what you found, and what remains unclear.",
+		"In parallel mode, use the fewest agents necessary and split only into truly independent investigations.",
+		"Do NOT use explore tool for simple lookups you can answer directly with a few read/grep calls.",
 	].join(" "),
 	parameters: Type.Object({
 		task: Type.Optional(
@@ -49,10 +49,14 @@ export const exploreTool = defineTool({
 				},
 			),
 		),
-		context: Type.Optional(
+		context: Type.String({
+			description:
+				"Required. Summarize the parent agent's own quick grep/find/read lookup, what it found, and what remains unresolved. Mention relevant files or commands when possible.",
+		}),
+		split_rationale: Type.Optional(
 			Type.String({
 				description:
-					"Additional context from the parent agent to help guide exploration (e.g., what you already know, specific areas to focus on)",
+					"Required in parallel mode. Explain why these tasks are independent enough to split and why this is the right number of sub-agents.",
 			}),
 		),
 	}),
@@ -60,12 +64,28 @@ export const exploreTool = defineTool({
 	async execute(_toolCallId, params, signal, onUpdate, ctx) {
 		const hasSingle = Boolean(params.task);
 		const hasParallel = (params.tasks?.length ?? 0) > 0;
+		const context = params.context.trim();
+		const validateTask = (task: string, label: string) => {
+			if (task.trim().length < 15) {
+				throw new Error(
+					`${label} is too vague. Make it specific enough for a sub-agent to investigate independently.`,
+				);
+			}
+		};
 
 		if (Number(hasSingle) + Number(hasParallel) !== 1) {
 			throw new Error(
 				"Provide exactly one of: task (single mode) or tasks (parallel mode).",
 			);
 		}
+
+		if (context.length < 40) {
+			throw new Error(
+				"Explore requires parent-agent pre-lookup. Provide context summarizing your own grep/find/read work, what you found, and what remains unclear.",
+			);
+		}
+
+		if (params.task) validateTask(params.task, "Task");
 
 		const exploreModel = getSettings().exploreModel;
 		let modelId: string;
@@ -93,7 +113,7 @@ export const exploreTool = defineTool({
 				ctx.cwd,
 				modelId,
 				params.task,
-				params.context,
+				context,
 				signal,
 				onUpdate,
 				makeDetails("single"),
@@ -134,6 +154,24 @@ export const exploreTool = defineTool({
 				`Too many parallel tasks (${tasks.length}). Max is ${MAX_PARALLEL}.`,
 			);
 		}
+		if (tasks.length === 1) {
+			throw new Error(
+				"Parallel explore needs at least 2 tasks. Use task for single-agent exploration.",
+			);
+		}
+		const splitRationale = params.split_rationale?.trim();
+		if (!splitRationale) {
+			throw new Error(
+				"Parallel explore requires split_rationale explaining why the tasks are independent and why this is the right number of sub-agents.",
+			);
+		}
+		for (const [index, task] of tasks.entries()) {
+			validateTask(task.task, `Task ${index + 1}`);
+		}
+		const normalizedTasks = tasks.map((task) => task.task.trim().toLowerCase());
+		if (new Set(normalizedTasks).size !== normalizedTasks.length) {
+			throw new Error("Parallel explore tasks must be distinct.");
+		}
 
 		const allResults: ExploreResult[] = tasks.map((t) => ({
 			task: t.task,
@@ -166,7 +204,7 @@ export const exploreTool = defineTool({
 					ctx.cwd,
 					modelId,
 					t.task,
-					params.context,
+					`${context}\n\nSplit rationale: ${splitRationale}`,
 					signal,
 					(partial) => {
 						if (partial.details?.results[0]) {
