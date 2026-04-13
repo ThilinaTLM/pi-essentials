@@ -1,7 +1,7 @@
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { getMarkdownTheme } from "@mariozechner/pi-coding-agent";
 import { Container, Markdown, Text } from "@mariozechner/pi-tui";
-import { showDialog } from "../../shared/ui/dialog.js";
+import { showDialog } from "../../shared/ui/dialog/index.js";
 
 export interface PlanPresentationDetails {
 	content: string;

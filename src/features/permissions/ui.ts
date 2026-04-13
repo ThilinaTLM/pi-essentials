@@ -1,6 +1,6 @@
 import type { ExtensionContext, Theme } from "@mariozechner/pi-coding-agent";
 import { Container, Text } from "@mariozechner/pi-tui";
-import { showDialog } from "../../shared/ui/dialog.js";
+import { showDialog } from "../../shared/ui/dialog/index.js";
 import { formatToolHeader } from "../../shared/ui/tool-header.js";
 
 export type ApprovalResult =

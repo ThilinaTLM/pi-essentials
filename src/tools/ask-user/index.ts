@@ -2,7 +2,7 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { defineTool } from "@mariozechner/pi-coding-agent";
 import { Container, Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
-import { showPromptDialog } from "../../shared/ui/dialog.js";
+import { showPromptDialog } from "../../shared/ui/dialog/index.js";
 import { renderToolHeader } from "../../shared/ui/tool-header.js";
 
 interface AskUserDetails {
