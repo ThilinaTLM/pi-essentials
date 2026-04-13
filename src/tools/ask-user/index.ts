@@ -61,7 +61,7 @@ export const askUserTool = defineTool({
 	name: "ask_user",
 	label: "Ask User",
 	description:
-		"Ask the user one focused question and wait for a free-text reply. Include your recommendation when useful, but do not present choices. The user may answer, disagree, refine the request, or ask for more explanation. Do not use this when the answer can be derived from the codebase or other tools.",
+		"Ask the user one focused question and wait for a free-text reply. Use this only when the answer must come from the user rather than the codebase, tools, or prior context. When helpful, include a brief recommendation and why, but do not present fixed choices. The user may answer directly, disagree, refine the request, or ask for more explanation. If the reply does not resolve the issue, continue with another single focused question.",
 	parameters: Type.Object({
 		question: Type.String({
 			description: "The single focused question to ask the user",
@@ -118,7 +118,7 @@ export const askUserTool = defineTool({
 		body.addChild(new Text("", 0, 0));
 		if (details.dismissed) {
 			body.addChild(
-				new Text(theme.fg("muted", "User dismissed the prompt."), 0, 0),
+				new Text(theme.fg("muted", "User dismissed the question."), 0, 0),
 			);
 			return body;
 		}
