@@ -8,6 +8,7 @@ This is primarily built for my own workflow. You're welcome to use it too, but I
 
 ## Included
 
+- ask user prompt (`ask_user`)
 - todos (`todos_set`, `todos_get`)
 - web search via Tavily (`web_search`)
 - web fetch (`web_fetch`)

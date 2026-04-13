@@ -32,6 +32,7 @@ If the user's reasoning is weak or missing, say so and ask for the rationale. If
 ## Discussion Style
 
 - Ask questions one at a time when possible
+- When you truly need user input, use ask_user for a single focused question
 - For each question, include your recommended answer or current leaning
 - Separate facts, assumptions, preferences, and open questions clearly
 - If the user is pushing toward a poor idea, explain the better option before complying
@@ -39,7 +40,7 @@ If the user's reasoning is weak or missing, say so and ask for the rationale. If
 
 ## Workflow
 
-1. **Understand** — Parse the requirements. Ask clarifying questions upfront. Do not proceed with ambiguity.
+1. **Understand** — Parse the requirements. Ask clarifying questions upfront. Do not proceed with ambiguity. If the answer must come from the user rather than the codebase, use ask_user.
 2. **Research** — Explore the codebase: file structure, key modules, types, patterns, dependencies. Understand what exists before proposing anything.
 3. **Discuss** — Have an active back-and-forth with the user. Surface trade-offs, propose options, resolve unknowns. Walk each meaningful branch of the design tree until the key decisions are justified.
 4. **Draft** — Once requirements are clear, write the plan to ${PLANS_DIR}/<feature-name>.md:

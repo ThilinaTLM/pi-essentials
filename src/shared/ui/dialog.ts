@@ -34,6 +34,14 @@ export interface DialogResult<T> {
 	input?: string;
 }
 
+export interface PromptDialogOptions {
+	title: string;
+	tone?: Extract<ThemeColor, "border" | "borderAccent" | "borderMuted">;
+	content: Component;
+	inputLabel?: string;
+	placeholder?: string;
+}
+
 // Unified modal dialog. Builds a Panel from the given sections — for any
 // section with `options`, renders a numbered list and wires keyboard
 // selection + digit shortcuts. Pauses any running loader while the dialog
@@ -81,8 +89,6 @@ export async function showDialog<T>(
 			const number = `${index + 1}.`;
 			const active = index === selected;
 			const capturing = active && slot.option.captureInput !== undefined;
-			// Selected options use `warning` so they don't blend with the
-			// `accent`-colored title/border text.
 			const numColor: ThemeColor = active ? "warning" : "muted";
 			const labelColor: ThemeColor = active ? "warning" : "text";
 			const num = theme.fg(numColor, number);
@@ -166,12 +172,73 @@ export async function showDialog<T>(
 					if (index < slots.length) {
 						selected = index;
 						refresh();
-						// If the target captures input, just move focus — let the
-						// user type their reason, then press enter.
 						if (!slots[index].option.captureInput) {
 							resolveSelected();
 						}
 					}
+				}
+			},
+			dispose: () => resumeLoader(),
+		};
+	});
+}
+
+export async function showPromptDialog(
+	ctx: ExtensionContext,
+	opts: PromptDialogOptions,
+): Promise<string | null> {
+	return ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
+		const resumeLoader = pauseLoader(tui);
+		const inputLine = new Text("", 0, 0);
+		const inputContainer = new Container();
+		inputContainer.addChild(inputLine);
+		const panel = new Panel(theme, {
+			title: opts.title,
+			tone: opts.tone,
+			sections: [
+				{ content: opts.content },
+				{ label: opts.inputLabel ?? "Reply", content: inputContainer },
+			],
+		});
+		let buffer = "";
+
+		const refresh = () => {
+			inputLine.setText(
+				buffer || theme.fg("dim", opts.placeholder ?? "Type your reply"),
+			);
+			panel.invalidate();
+		};
+
+		refresh();
+
+		return {
+			render: (width: number) => panel.render(width),
+			invalidate: () => panel.invalidate(),
+			handleInput: (data: string) => {
+				if (matchesKey(data, "backspace")) {
+					buffer = buffer.slice(0, -1);
+					refresh();
+					return;
+				}
+				if (matchesKey(data, "enter")) {
+					const value = buffer.trim();
+					if (value) {
+						done(value);
+					}
+					return;
+				}
+				if (matchesKey(data, "escape") || matchesKey(data, "ctrl+c")) {
+					done(null);
+					return;
+				}
+				if (
+					data.length === 1 &&
+					data >= " " &&
+					!matchesKey(data, "enter") &&
+					!matchesKey(data, "escape")
+				) {
+					buffer += data;
+					refresh();
 				}
 			},
 			dispose: () => resumeLoader(),

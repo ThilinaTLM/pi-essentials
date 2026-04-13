@@ -6,11 +6,13 @@ import { registerPlan } from "./features/plan/index.js";
 import { registerSystemPromptOverride } from "./features/system-prompt/index.js";
 import { registerWelcome } from "./features/welcome/index.js";
 import { loadSettings } from "./shared/settings.js";
+import { askUserTool } from "./tools/ask-user/index.js";
 import { todosGetTool, todosSetTool } from "./tools/todo/index.js";
 import { webFetchTool } from "./tools/web-fetch/index.js";
 import { webSearchTool } from "./tools/web-search/index.js";
 
 export default function (pi: ExtensionAPI) {
+	pi.registerTool(askUserTool);
 	pi.registerTool(todosSetTool);
 	pi.registerTool(todosGetTool);
 	pi.registerTool(webSearchTool);

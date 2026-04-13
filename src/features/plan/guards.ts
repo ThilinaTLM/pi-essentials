@@ -4,6 +4,7 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 export const PLANS_DIR = join(homedir(), ".pi", "plans");
 
 const PLAN_ALLOWED_TOOLS = new Set([
+	"ask_user",
 	"explore",
 	"find",
 	"grep",
