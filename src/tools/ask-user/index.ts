@@ -28,20 +28,14 @@ function buildPromptBody(
 ): Container {
 	const theme = ctx.ui.theme;
 	const body = new Container();
-	body.addChild(new Text(theme.fg("text", theme.bold(params.question)), 0, 0));
 	if (params.context) {
-		body.addChild(new Text("", 0, 0));
 		body.addChild(new Text(theme.fg("muted", params.context), 0, 0));
+		body.addChild(new Text("", 0, 0));
 	}
+	body.addChild(new Text(theme.fg("text", theme.bold(params.question)), 0, 0));
 	if (params.recommendation) {
 		body.addChild(new Text("", 0, 0));
-		body.addChild(
-			new Text(
-				theme.fg("accent", `Recommendation: ${params.recommendation}`),
-				0,
-				0,
-			),
-		);
+		body.addChild(new Text(theme.fg("accent", params.recommendation), 0, 0));
 	}
 	return body;
 }
@@ -79,12 +73,25 @@ export const askUserTool = defineTool({
 			placeholder:
 				params.placeholder ??
 				"Type your reply, disagree, or ask for more explanation",
+			quickReplies: [
+				{
+					label: "I Agree",
+					value: "I agree with your recommendation",
+				},
+				{
+					label: "Explain More",
+					value: "Could you explain it a bit further?",
+				},
+			],
 		});
 		const details: AskUserDetails = {
 			question: params.question,
 			response: response ?? undefined,
 			dismissed: response === null,
 		};
+		if (response === null) {
+			context.abort();
+		}
 
 		return {
 			content: [{ type: "text", text: JSON.stringify(details, null, 2) }],
