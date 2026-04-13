@@ -10,7 +10,8 @@ import {
 	exitPlanMode,
 	initializePlanState,
 	isPlanActive,
-	syncPlanToolsActive,
+	PLAN_MODE_STATE_ENTRY,
+	restorePlanMode,
 } from "./state.js";
 import { planEnterTool, planForceExitTool, planPresentTool } from "./tools.js";
 
@@ -21,8 +22,16 @@ export function registerPlan(pi: ExtensionAPI) {
 	pi.registerTool(planForceExitTool);
 	pi.registerTool(planPresentTool);
 
-	pi.on("session_start", async () => {
-		syncPlanToolsActive();
+	pi.on("session_start", async (_event, ctx) => {
+		const entries = ctx.sessionManager.getEntries();
+		const planModeEntry = [...entries]
+			.reverse()
+			.find(
+				(entry) =>
+					entry.type === "custom" && entry.customType === PLAN_MODE_STATE_ENTRY,
+			) as { data?: { active?: boolean } } | undefined;
+
+		restorePlanMode(ctx, planModeEntry?.data?.active === true);
 	});
 
 	const togglePlanMode = async (ctx: ExtensionContext) => {

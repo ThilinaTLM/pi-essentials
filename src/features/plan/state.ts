@@ -4,6 +4,8 @@ import type {
 } from "@mariozechner/pi-coding-agent";
 import { setPlanModeWidget } from "./ui.js";
 
+export const PLAN_MODE_STATE_ENTRY = "plan-mode-state";
+
 const PLAN_ONLY_TOOLS = ["plan_mode_force_exit", "plan_mode_present"];
 
 let planActive = false;
@@ -17,20 +19,28 @@ export function isPlanActive(): boolean {
 	return planActive;
 }
 
-export function syncPlanToolsActive(): void {
-	setPlanToolsActive(planActive);
+export function restorePlanMode(ctx: ExtensionContext, active: boolean): void {
+	applyPlanModeState(ctx, active);
 }
 
 export function enterPlanMode(ctx: ExtensionContext): void {
-	planActive = true;
-	setPlanModeWidget(ctx, true);
-	setPlanToolsActive(true);
+	applyPlanModeState(ctx, true);
+	persistPlanModeState(true);
 }
 
 export function exitPlanMode(ctx: ExtensionContext): void {
-	planActive = false;
-	setPlanModeWidget(ctx, false);
-	setPlanToolsActive(false);
+	applyPlanModeState(ctx, false);
+	persistPlanModeState(false);
+}
+
+function applyPlanModeState(ctx: ExtensionContext, active: boolean): void {
+	planActive = active;
+	setPlanModeWidget(ctx, active);
+	setPlanToolsActive(active);
+}
+
+function persistPlanModeState(active: boolean): void {
+	piRef?.appendEntry(PLAN_MODE_STATE_ENTRY, { active });
 }
 
 function setPlanToolsActive(active: boolean): void {

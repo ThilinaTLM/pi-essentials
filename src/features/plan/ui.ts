@@ -5,7 +5,7 @@ import { showDialog } from "../../shared/ui/dialog.js";
 
 export interface PlanPresentationDetails {
 	content: string;
-	action: "accepted" | "changes_requested";
+	action: "accepted" | "changes_requested" | "dismissed";
 	filePath: string;
 }
 
@@ -68,13 +68,21 @@ export function renderPlanPresentationResult(
 		container.addChild(
 			new Text(theme.fg("success", "Plan Accepted — Working on it."), 0, 0),
 		);
-	} else {
+	} else if (details.action === "changes_requested") {
 		container.addChild(
 			new Text(
 				theme.fg(
 					"warning",
 					"Changes Requested — Please describe what you'd like changed below.",
 				),
+				0,
+				0,
+			),
+		);
+	} else {
+		container.addChild(
+			new Text(
+				theme.fg("muted", "Plan Review Dismissed — Plan mode is still active."),
 				0,
 				0,
 			),

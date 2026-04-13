@@ -3,13 +3,15 @@ import { defineTool } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { renderToolHeader } from "../../shared/ui/tool-header.js";
-import { PLANS_DIR } from "./guards.js";
+import { isAllowedPlanPath, PLANS_DIR } from "./guards.js";
 import { enterPlanMode, exitPlanMode, isPlanActive } from "./state.js";
 import {
 	type PlanPresentationDetails,
 	presentPlanReview,
 	renderPlanPresentationResult,
 } from "./ui.js";
+
+const UNRESOLVED_PLAN_MARKER = /\[!(QUESTION|DECISION)\]/i;
 
 function requireContext<T>(ctx: T | undefined): T {
 	if (!ctx) {
@@ -97,6 +99,12 @@ export const planPresentTool = defineTool({
 		}
 
 		const context = requireContext(ctx);
+		if (!isAllowedPlanPath(params.file_path)) {
+			throw new Error(
+				`Plan file must be inside ${PLANS_DIR}/. Attempted: ${params.file_path}`,
+			);
+		}
+
 		let content: string;
 		try {
 			content = await readFile(params.file_path, "utf-8");
@@ -107,6 +115,12 @@ export const planPresentTool = defineTool({
 		if (!content.trim()) {
 			throw new Error(
 				"Plan file is empty. Write your plan first, then present it.",
+			);
+		}
+
+		if (UNRESOLVED_PLAN_MARKER.test(content)) {
+			throw new Error(
+				"Plan still contains unresolved [!QUESTION] or [!DECISION] callouts. Resolve them before presenting.",
 			);
 		}
 
@@ -128,17 +142,33 @@ export const planPresentTool = defineTool({
 			};
 		}
 
-		context.abort();
+		if (choice === "changes") {
+			context.abort();
+			return {
+				content: [
+					{
+						type: "text",
+						text: `User wants changes to the plan. Update the plan file at ${params.file_path} and present again.`,
+					},
+				],
+				details: {
+					content,
+					action: "changes_requested",
+					filePath: params.file_path,
+				} satisfies PlanPresentationDetails,
+			};
+		}
+
 		return {
 			content: [
 				{
 					type: "text",
-					text: `User wants changes to the plan. Update the plan file at ${params.file_path} and present again.`,
+					text: `Plan review dismissed. Plan mode remains active. Re-present ${params.file_path} when you're ready.`,
 				},
 			],
 			details: {
 				content,
-				action: "changes_requested",
+				action: "dismissed",
 				filePath: params.file_path,
 			} satisfies PlanPresentationDetails,
 		};
