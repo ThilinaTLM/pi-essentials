@@ -5,8 +5,12 @@ import type {
 import {
 	type Component,
 	Container,
+	Editor,
+	type EditorTheme,
+	type Focusable,
 	matchesKey,
 	Text,
+	type TUI,
 } from "@mariozechner/pi-tui";
 import { pauseLoader } from "./modal-chrome.js";
 import { Panel, type PanelSection } from "./panel.js";
@@ -183,63 +187,89 @@ export async function showDialog<T>(
 	});
 }
 
+class PromptDialog implements Component, Focusable {
+	private readonly panel: Panel;
+	private readonly editor: Editor;
+	private readonly done: (result: string | null) => void;
+	private _focused = false;
+
+	get focused(): boolean {
+		return this._focused;
+	}
+
+	set focused(value: boolean) {
+		this._focused = value;
+		this.editor.focused = value;
+	}
+
+	constructor(
+		tui: TUI,
+		theme: ExtensionContext["ui"]["theme"],
+		opts: PromptDialogOptions,
+		done: (result: string | null) => void,
+	) {
+		this.done = done;
+		const editorTheme: EditorTheme = {
+			borderColor: (s) => theme.fg("borderMuted", s),
+			selectList: {
+				selectedPrefix: (t) => theme.fg("accent", t),
+				selectedText: (t) => theme.fg("accent", t),
+				description: (t) => theme.fg("muted", t),
+				scrollInfo: (t) => theme.fg("dim", t),
+				noMatch: (t) => theme.fg("warning", t),
+			},
+		};
+		this.editor = new Editor(tui, editorTheme);
+		this.editor.onSubmit = (text) => {
+			if (text.trim()) {
+				this.done(text.trimEnd());
+			}
+		};
+
+		this.panel = new Panel(theme, {
+			title: opts.title,
+			tone: opts.tone,
+			sections: [
+				{ content: opts.content },
+				{ label: opts.inputLabel ?? "Reply", content: this.editor },
+			],
+		});
+	}
+
+	handleInput(data: string): void {
+		if (matchesKey(data, "escape") || matchesKey(data, "ctrl+c")) {
+			this.done(null);
+			return;
+		}
+		this.editor.handleInput(data);
+		this.panel.invalidate();
+	}
+
+	invalidate(): void {
+		this.panel.invalidate();
+	}
+
+	render(width: number): string[] {
+		return this.panel.render(width);
+	}
+}
+
 export async function showPromptDialog(
 	ctx: ExtensionContext,
 	opts: PromptDialogOptions,
 ): Promise<string | null> {
 	return ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
 		const resumeLoader = pauseLoader(tui);
-		const inputLine = new Text("", 0, 0);
-		const inputContainer = new Container();
-		inputContainer.addChild(inputLine);
-		const panel = new Panel(theme, {
-			title: opts.title,
-			tone: opts.tone,
-			sections: [
-				{ content: opts.content },
-				{ label: opts.inputLabel ?? "Reply", content: inputContainer },
-			],
-		});
-		let buffer = "";
-
-		const refresh = () => {
-			inputLine.setText(
-				buffer || theme.fg("dim", opts.placeholder ?? "Type your reply"),
-			);
-			panel.invalidate();
-		};
-
-		refresh();
-
+		const dialog = new PromptDialog(tui, theme, opts, done);
 		return {
-			render: (width: number) => panel.render(width),
-			invalidate: () => panel.invalidate(),
-			handleInput: (data: string) => {
-				if (matchesKey(data, "backspace")) {
-					buffer = buffer.slice(0, -1);
-					refresh();
-					return;
-				}
-				if (matchesKey(data, "enter")) {
-					const value = buffer.trim();
-					if (value) {
-						done(value);
-					}
-					return;
-				}
-				if (matchesKey(data, "escape") || matchesKey(data, "ctrl+c")) {
-					done(null);
-					return;
-				}
-				if (
-					data.length === 1 &&
-					data >= " " &&
-					!matchesKey(data, "enter") &&
-					!matchesKey(data, "escape")
-				) {
-					buffer += data;
-					refresh();
-				}
+			render: (width: number) => dialog.render(width),
+			invalidate: () => dialog.invalidate(),
+			handleInput: (data: string) => dialog.handleInput(data),
+			get focused() {
+				return dialog.focused;
+			},
+			set focused(value: boolean) {
+				dialog.focused = value;
 			},
 			dispose: () => resumeLoader(),
 		};

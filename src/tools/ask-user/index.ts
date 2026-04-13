@@ -43,17 +43,6 @@ function buildPromptBody(
 			),
 		);
 	}
-	body.addChild(new Text("", 0, 0));
-	body.addChild(
-		new Text(
-			theme.fg(
-				"dim",
-				"Reply, disagree, refine the request, or ask for more explanation.",
-			),
-			0,
-			0,
-		),
-	);
 	return body;
 }
 
