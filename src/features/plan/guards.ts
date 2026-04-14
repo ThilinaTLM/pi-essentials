@@ -160,6 +160,13 @@ function stripQuotedStrings(command: string): string {
 	return result;
 }
 
+function stripSafeRedirects(command: string): string {
+	return command
+		.replace(/\d*>\s*\/dev\/null/g, " ")
+		.replace(/&>\s*\/dev\/null/g, " ")
+		.replace(/2>&1/g, " ");
+}
+
 function getCommandTokens(segment: string): string[] {
 	const tokens = segment.trim().split(/\s+/).filter(Boolean);
 	while (tokens[0]?.includes("=") && !tokens[0].startsWith("/")) {
@@ -188,23 +195,25 @@ export function isAllowedPlanBashCommand(command: string): boolean {
 	const normalized = stripQuotedStrings(command).trim();
 	if (!normalized) return false;
 
-	if (/[<>]/.test(normalized)) {
+	const cleaned = stripSafeRedirects(normalized);
+
+	if (/[<>]/.test(cleaned)) {
 		return false;
 	}
 
-	if (/[(){}]/.test(normalized)) {
+	if (/[(){}]/.test(cleaned)) {
 		return false;
 	}
 
-	if (/(^|[^&])&([^&]|$)/.test(normalized)) {
+	if (/(^|[^&])&([^&]|$)/.test(cleaned)) {
 		return false;
 	}
 
-	if (BLOCKED_BASH_PATTERNS.some((pattern) => pattern.test(normalized))) {
+	if (BLOCKED_BASH_PATTERNS.some((pattern) => pattern.test(cleaned))) {
 		return false;
 	}
 
-	const segments = normalized
+	const segments = cleaned
 		.split(/&&|\|\||[;|]/)
 		.map((segment) => segment.trim())
 		.filter(Boolean);
