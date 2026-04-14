@@ -71,7 +71,6 @@ const BLOCKED_BASH_PATTERNS = [
 	/<\(/,
 	/>\(/,
 	/\btee\b/,
-	/\bxargs\b/,
 	/\b(find|fd)\b[^\n]*\s-exec\b/,
 	/\bsed\s+-i\b/,
 	/\bperl\s+-i\b/,
@@ -175,20 +174,54 @@ function getCommandTokens(segment: string): string[] {
 	return tokens;
 }
 
+function getXargsInvokedCommand(tokens: string[]): string | undefined {
+	for (let i = 1; i < tokens.length; i++) {
+		const token = tokens[i];
+		if (
+			token === "-I" ||
+			token === "-d" ||
+			token === "-L" ||
+			token === "-n" ||
+			token === "-P"
+		) {
+			i++;
+			continue;
+		}
+		if (token.startsWith("-")) continue;
+		return token;
+	}
+	return undefined;
+}
+
 function isAllowedBashSegment(segment: string): boolean {
 	const tokens = getCommandTokens(segment);
 	if (tokens.length === 0) return true;
 
-	const [rootCommand, subcommand] = tokens;
+	const [rootCommand] = tokens;
+
+	if (rootCommand === "xargs") {
+		const invoked = getXargsInvokedCommand(tokens);
+		if (!invoked || !SAFE_BASH_ROOT_COMMANDS.has(invoked)) return false;
+		if (invoked === "git") {
+			const gitIdx = tokens.indexOf(invoked);
+			const gitSub = tokens[gitIdx + 1];
+			return typeof gitSub === "string" && SAFE_GIT_SUBCOMMANDS.has(gitSub);
+		}
+		return true;
+	}
+
 	if (!SAFE_BASH_ROOT_COMMANDS.has(rootCommand)) {
 		return false;
 	}
 
-	if (rootCommand !== "git") {
-		return true;
+	if (rootCommand === "git") {
+		const subcommand = tokens[1];
+		return (
+			typeof subcommand === "string" && SAFE_GIT_SUBCOMMANDS.has(subcommand)
+		);
 	}
 
-	return typeof subcommand === "string" && SAFE_GIT_SUBCOMMANDS.has(subcommand);
+	return true;
 }
 
 export function isAllowedPlanBashCommand(command: string): boolean {
