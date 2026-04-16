@@ -1,23 +1,12 @@
 import type { ExtensionAPI, Theme } from "@mariozechner/pi-coding-agent";
-import { Text, visibleWidth } from "@mariozechner/pi-tui";
+import { visibleWidth } from "@mariozechner/pi-tui";
 import { getSettings, loadSettings } from "../../shared/settings.js";
-import { formatModelLabel } from "../../shared/ui/model.js";
+import { formatModelLabel, type ModelLike } from "../../shared/ui/model.js";
 import { statusGlyph } from "../../shared/ui/status.js";
 import {
 	getPermissionLevel,
 	type PermissionLevel,
 } from "../permissions/index.js";
-
-const WELCOME_MESSAGE_TYPE = "pi-welcome";
-const WELCOME_FALLBACK_TEXT = "Pi coding agent";
-
-type SessionEntryLike = {
-	type?: string;
-	message?: {
-		role?: string;
-		customType?: string;
-	};
-};
 
 type WelcomeInfo = {
 	current: string;
@@ -25,8 +14,8 @@ type WelcomeInfo = {
 	permissionLevel: PermissionLevel;
 };
 
-type ModelLookup = {
-	find(provider: string, id: string): { name?: string; id: string } | undefined;
+type ModelRegistryLike = {
+	find(provider: string, id: string): ModelLike | undefined;
 };
 
 function getLogoColumns(theme: Theme): string[] {
@@ -83,103 +72,54 @@ function getLogoLines(theme: Theme, info: WelcomeInfo): string[] {
 		return `${indent}${logoLine}${gap}${modelLine}`;
 	});
 
-	return [...combined, "", `${indent}${subtitle}`];
+	return ["", ...combined, "", `${indent}${subtitle}`];
 }
 
-function hasWelcomeMessage(entries: SessionEntryLike[]): boolean {
-	return entries.some(
-		(entry) =>
-			entry.type === "message" &&
-			entry.message?.role === "custom" &&
-			entry.message.customType === WELCOME_MESSAGE_TYPE,
-	);
+function resolveExploreModel(
+	modelId: string | undefined,
+	registry: ModelRegistryLike,
+): string | undefined {
+	if (!modelId) return undefined;
+	const [provider, id] = modelId.split("/", 2);
+	if (!provider || !id) return modelId;
+	const resolved = registry.find(provider, id);
+	return resolved ? formatModelLabel(resolved) : modelId;
 }
 
-function hasConversationMessages(entries: SessionEntryLike[]): boolean {
-	return entries.some((entry) => entry.type === "message");
-}
-
-function shouldShowWelcome(
-	reason: string,
-	entries: SessionEntryLike[],
-): boolean {
-	if (hasConversationMessages(entries)) {
-		return false;
-	}
-	return reason === "startup" || reason === "new";
+function buildInfo(
+	model: ModelLike | undefined,
+	registry: ModelRegistryLike,
+): WelcomeInfo {
+	return {
+		current: formatModelLabel(model),
+		explore: resolveExploreModel(getSettings().exploreModel, registry),
+		permissionLevel: getPermissionLevel(),
+	};
 }
 
 export function registerWelcome(pi: ExtensionAPI): void {
-	let info: WelcomeInfo = {
-		current: "no-model",
-		explore: undefined,
-		permissionLevel: "auto",
-	};
+	let renderRequest: (() => void) | undefined;
 
-	function resolveModelId(
-		modelId: string | undefined,
-		registry?: ModelLookup,
-	): string | undefined {
-		if (!modelId) return undefined;
-		if (!registry) return modelId;
-		const [provider, id] = modelId.split("/", 2);
-		if (!provider || !id) return modelId;
-		const resolved = registry.find(provider, id);
-		return resolved ? formatModelLabel(resolved) : modelId;
-	}
-
-	function updateInfo(
-		model: { name?: string; id: string } | undefined,
-		registry?: ModelLookup,
-	): void {
-		info = {
-			current: formatModelLabel(model),
-			explore: resolveModelId(getSettings().exploreModel, registry),
-			permissionLevel: getPermissionLevel(),
-		};
-	}
-
-	pi.registerMessageRenderer(
-		WELCOME_MESSAGE_TYPE,
-		(_message, _options, theme) =>
-			new Text(getLogoLines(theme, info).join("\n"), 0, 0),
-	);
-
-	pi.on("session_start", async (event, ctx) => {
-		if (!ctx.hasUI) {
-			return;
-		}
-
+	pi.on("session_start", async (_event, ctx) => {
+		if (!ctx.hasUI) return;
 		await loadSettings();
-		updateInfo(ctx.model, ctx.modelRegistry);
 
-		const entries = ctx.sessionManager.getEntries() as SessionEntryLike[];
-		if (!shouldShowWelcome(event.reason, entries)) {
-			return;
-		}
-		if (hasWelcomeMessage(entries)) {
-			return;
-		}
-
-		pi.sendMessage(
-			{
-				customType: WELCOME_MESSAGE_TYPE,
-				content: WELCOME_FALLBACK_TEXT,
-				display: true,
-				details: { variant: "logo", createdAt: Date.now() },
-			},
-			{ triggerTurn: false },
-		);
+		ctx.ui.setHeader((tui, theme) => {
+			renderRequest = () => tui.requestRender();
+			return {
+				invalidate() {},
+				dispose() {
+					renderRequest = undefined;
+				},
+				render(_width: number): string[] {
+					const info = buildInfo(ctx.model, ctx.modelRegistry);
+					return getLogoLines(theme, info);
+				},
+			};
+		});
 	});
 
-	pi.on("model_select", async (event, ctx) => {
-		updateInfo(event.model, ctx.modelRegistry);
+	pi.on("model_select", async () => {
+		renderRequest?.();
 	});
-
-	pi.on("context", async (event) => ({
-		messages: event.messages.filter((message) => {
-			const customMessage = message as { customType?: string };
-			return customMessage.customType !== WELCOME_MESSAGE_TYPE;
-		}),
-	}));
 }
