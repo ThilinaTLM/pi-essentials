@@ -15,6 +15,13 @@ export function initializePlanState(pi: ExtensionAPI): void {
 	piRef = pi;
 }
 
+export function getPi(): ExtensionAPI {
+	if (!piRef) {
+		throw new Error("Plan state not initialized.");
+	}
+	return piRef;
+}
+
 export function isPlanActive(): boolean {
 	return planActive;
 }

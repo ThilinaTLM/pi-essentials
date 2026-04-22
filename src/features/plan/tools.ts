@@ -4,7 +4,7 @@ import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { renderToolHeader } from "../../shared/ui/tool-header.js";
 import { isAllowedPlanPath, PLANS_DIR } from "./guards.js";
-import { enterPlanMode, exitPlanMode, isPlanActive } from "./state.js";
+import { enterPlanMode, exitPlanMode, getPi, isPlanActive } from "./state.js";
 import {
 	type PlanPresentationDetails,
 	presentPlanReview,
@@ -137,6 +137,45 @@ export const planPresentTool = defineTool({
 				details: {
 					content,
 					action: "accepted",
+					filePath: params.file_path,
+				} satisfies PlanPresentationDetails,
+			};
+		}
+
+		if (choice === "accept_compact") {
+			exitPlanMode(context);
+			context.abort();
+
+			const followUpMessage = `Read the plan at ${params.file_path} and start implementing it now.`;
+			const customInstructions =
+				`The user has accepted the finalized implementation plan at ${params.file_path}. ` +
+				`That file is the canonical source of truth for execution; do not restate its contents in the summary. ` +
+				`Focus the summary on project context, constraints, and decisions surfaced during planning that are relevant to implementation.`;
+
+			context.compact({
+				customInstructions,
+				onComplete: () => {
+					getPi().sendUserMessage(followUpMessage);
+				},
+				onError: (err) => {
+					context.ui.notify(
+						`Compaction failed: ${err.message}. Continuing without compaction.`,
+						"warning",
+					);
+					getPi().sendUserMessage(followUpMessage);
+				},
+			});
+
+			return {
+				content: [
+					{
+						type: "text",
+						text: `Plan accepted. Compacting the conversation before implementation.`,
+					},
+				],
+				details: {
+					content,
+					action: "accepted_compact",
 					filePath: params.file_path,
 				} satisfies PlanPresentationDetails,
 			};

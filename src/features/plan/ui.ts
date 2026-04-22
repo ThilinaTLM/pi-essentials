@@ -5,11 +5,11 @@ import { showDialog } from "../../shared/ui/dialog/index.js";
 
 export interface PlanPresentationDetails {
 	content: string;
-	action: "accepted" | "changes_requested" | "dismissed";
+	action: "accepted" | "accepted_compact" | "changes_requested" | "dismissed";
 	filePath: string;
 }
 
-export type PlanReviewChoice = "accept" | "changes";
+export type PlanReviewChoice = "accept" | "accept_compact" | "changes";
 
 export function setPlanModeWidget(
 	ctx: ExtensionContext,
@@ -44,6 +44,7 @@ export async function presentPlanReview(
 			{
 				options: [
 					{ id: "accept", label: "Accept & Execute" },
+					{ id: "accept_compact", label: "Accept, Compact & Execute" },
 					{ id: "changes", label: "Request Changes" },
 				],
 			},
@@ -67,6 +68,17 @@ export function renderPlanPresentationResult(
 	if (details.action === "accepted") {
 		container.addChild(
 			new Text(theme.fg("success", "Plan Accepted — Working on it."), 0, 0),
+		);
+	} else if (details.action === "accepted_compact") {
+		container.addChild(
+			new Text(
+				theme.fg(
+					"success",
+					"Plan Accepted — Compacting before implementation…",
+				),
+				0,
+				0,
+			),
 		);
 	} else if (details.action === "changes_requested") {
 		container.addChild(
