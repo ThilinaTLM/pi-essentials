@@ -1,6 +1,6 @@
-# pi-essentials
+# pi-toolbelt
 
-My personal set of essential tools and UI tweaks for [pi coding agent](https://github.com/badlogic/pi-mono).
+My personal toolbelt for the [pi coding agent](https://github.com/badlogic/pi-mono): tools, workflow commands, UI tweaks, and themes.
 
 ![Preview](docs/preview.png)
 
@@ -13,6 +13,7 @@ This is primarily built for my own workflow. You're welcome to use it too, but I
 - web search via Tavily (`web_search`)
 - web fetch (`web_fetch`)
 - plan mode tools and commands
+- cross-platform handover command (`/handover`)
 - a custom footer
 
 ## Install
@@ -20,7 +21,7 @@ This is primarily built for my own workflow. You're welcome to use it too, but I
 Install it with pi from git:
 
 ```bash
-pi install git:git@github.com:ThilinaTLM/pi-essentials.git
+pi install git:git@github.com:ThilinaTLM/pi-toolbelt.git
 ```
 
 For package/extension loading details, see the pi coding agent docs for packages and extensions.
@@ -35,4 +36,4 @@ export TAVILY_API_KEY=your_key_here
 
 ## Note
 
-This repo is meant to keep pi stocked with the tools and customizations I consider essential — not to provide a stable public API or compatibility guarantees.
+This repo is meant to keep pi stocked with the tools and customizations I reach for often — not to provide a stable public API or compatibility guarantees.

@@ -87,7 +87,7 @@ export const webFetchTool = defineTool({
 
 		const res = await fetch(params.url, {
 			headers: {
-				"User-Agent": "pi-essentials/1.0",
+				"User-Agent": "pi-toolbelt/1.0",
 				Accept: "text/html,application/json,text/plain,*/*",
 			},
 			redirect: "follow",

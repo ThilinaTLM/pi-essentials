@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { registerExplore } from "./features/explore/index.js";
 import { registerFooter } from "./features/footer/index.js";
+import { registerHandover } from "./features/handover/index.js";
 import { registerPermissions } from "./features/permissions/index.js";
 import { registerPlan } from "./features/plan/index.js";
 import { registerSystemPromptOverride } from "./features/system-prompt/index.js";
@@ -21,6 +22,7 @@ export default function (pi: ExtensionAPI) {
 	registerPermissions(pi);
 	registerSystemPromptOverride(pi);
 	registerPlan(pi);
+	registerHandover(pi);
 	registerFooter(pi);
 	registerWelcome(pi);
 

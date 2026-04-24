@@ -4,20 +4,20 @@ import { dirname, join, resolve } from "node:path";
 
 import type { PermissionLevel } from "../features/permissions/index.js";
 
-export interface PiEssentialsSettings {
+export interface PiToolbeltSettings {
 	exploreModel?: string;
 	permissionLevel?: PermissionLevel;
 }
 
 const AGENT_DIR = join(homedir(), ".pi", "agent");
-const SETTINGS_PATH = join(AGENT_DIR, "pi-essentials.json");
+const SETTINGS_PATH = join(AGENT_DIR, "pi-toolbelt.json");
 
-let cached: PiEssentialsSettings = {};
+let cached: PiToolbeltSettings = {};
 
-export async function loadSettings(): Promise<PiEssentialsSettings> {
+export async function loadSettings(): Promise<PiToolbeltSettings> {
 	try {
 		const raw = await readFile(SETTINGS_PATH, "utf-8");
-		cached = JSON.parse(raw) as PiEssentialsSettings;
+		cached = JSON.parse(raw) as PiToolbeltSettings;
 	} catch {
 		cached = {};
 	}
@@ -25,7 +25,7 @@ export async function loadSettings(): Promise<PiEssentialsSettings> {
 }
 
 export async function saveSettings(
-	settings: PiEssentialsSettings,
+	settings: PiToolbeltSettings,
 ): Promise<void> {
 	cached = settings;
 	await mkdir(dirname(SETTINGS_PATH), { recursive: true });
@@ -36,7 +36,7 @@ export async function saveSettings(
 	);
 }
 
-export function getSettings(): PiEssentialsSettings {
+export function getSettings(): PiToolbeltSettings {
 	return cached;
 }
 

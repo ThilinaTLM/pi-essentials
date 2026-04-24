@@ -1,9 +1,9 @@
 {
-	"name": "pi-essentials",
+	"name": "pi-toolbelt",
 	"version": "1.0.0",
 	"type": "module",
 	"private": true,
-	"description": "Essential tools for the pi coding agent: todos, web search, and web fetch",
+	"description": "Personal toolbelt for the pi coding agent: tools, workflow commands, UI tweaks, and themes",
 	"keywords": [
 		"pi-package"
 	],
