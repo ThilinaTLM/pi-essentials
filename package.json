@@ -21,8 +21,9 @@
 		"format": "biome format --write .",
 		"lint": "biome lint .",
 		"lint:fix": "biome lint --write .",
+		"test": "node --experimental-strip-types --test tests/**/*.test.mjs",
 		"typecheck": "tsc --noEmit",
-		"check": "biome check . && tsc --noEmit",
+		"check": "biome check . && tsc --noEmit && pnpm test",
 		"check:fix": "biome check --write ."
 	},
 	"dependencies": {

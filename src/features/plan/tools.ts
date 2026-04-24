@@ -23,7 +23,7 @@ function requireContext<T>(ctx: T | undefined): T {
 export const planEnterTool = defineTool({
 	name: "plan_mode_enter",
 	label: "Enter Plan Mode",
-	description: `Enter plan mode — a read-only research and planning phase. You can read files, search, and run safe commands, but only write and edit files in ${PLANS_DIR}/. Use this for complex tasks that need requirements discovery, codebase research, and discussion with the user before implementation.`,
+	description: `Enter plan mode — a research and planning phase with guarded writes. You can read files, search, and run planning-safe commands, but only write and edit files in ${PLANS_DIR}/. Use this for complex tasks that need requirements discovery, codebase research, and discussion with the user before implementation.`,
 	parameters: Type.Object({}),
 	async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
 		if (isPlanActive()) {

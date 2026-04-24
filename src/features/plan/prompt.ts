@@ -4,12 +4,13 @@ export function buildPlanModeSystemPrompt(systemPrompt: string): string {
 	return `${systemPrompt}
 
 [PLAN MODE ACTIVE]
-You are in plan mode — a read-only research and planning mode.
+You are in plan mode — a research and planning mode with guarded writes.
 
 Restrictions:
-- READ files, search, grep, run safe bash commands
+- READ files, search, grep, run planning-safe bash commands
 - WRITE and EDIT only in ${PLANS_DIR}/
 - NO code modifications outside the plans directory
+- Bash is guarded on a best-effort basis; avoid commands that modify files, run package scripts, or perform destructive actions
 
 ## Your Role
 
