@@ -1,5 +1,4 @@
-import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { defineTool } from "@mariozechner/pi-coding-agent";
+import { defineTool, type Theme } from "@mariozechner/pi-coding-agent";
 import { Container, Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { showPromptDialog } from "../../shared/ui/dialog/index.js";
@@ -7,8 +6,16 @@ import { renderToolHeader } from "../../shared/ui/tool-header.js";
 
 interface AskUserDetails {
 	question: string;
+	context?: string;
+	recommendation?: string;
 	response?: string;
 	dismissed: boolean;
+}
+
+interface PromptBodyParams {
+	question: string;
+	context?: string;
+	recommendation?: string;
 }
 
 function requireContext<T>(ctx: T | undefined): T {
@@ -18,24 +25,18 @@ function requireContext<T>(ctx: T | undefined): T {
 	return ctx;
 }
 
-function buildPromptBody(
-	ctx: ExtensionContext,
-	params: {
-		question: string;
-		context?: string;
-		recommendation?: string;
-	},
-): Container {
-	const theme = ctx.ui.theme;
+function buildPromptBody(theme: Theme, params: PromptBodyParams): Container {
 	const body = new Container();
 	if (params.context) {
 		body.addChild(new Text(theme.fg("muted", params.context), 0, 0));
 		body.addChild(new Text("", 0, 0));
 	}
-	body.addChild(new Text(theme.fg("text", theme.bold(params.question)), 0, 0));
+	body.addChild(
+		new Text(theme.fg("accent", theme.bold(params.question)), 0, 0),
+	);
 	if (params.recommendation) {
 		body.addChild(new Text("", 0, 0));
-		body.addChild(new Text(theme.fg("accent", params.recommendation), 0, 0));
+		body.addChild(new Text(theme.fg("text", params.recommendation), 0, 0));
 	}
 	return body;
 }
@@ -69,7 +70,7 @@ export const askUserTool = defineTool({
 		const context = requireContext(ctx);
 		const response = await showPromptDialog(context, {
 			title: "Question",
-			content: buildPromptBody(context, params),
+			content: buildPromptBody(context.ui.theme, params),
 			placeholder:
 				params.placeholder ??
 				"Type your reply, disagree, or ask for more explanation",
@@ -86,6 +87,8 @@ export const askUserTool = defineTool({
 		});
 		const details: AskUserDetails = {
 			question: params.question,
+			context: params.context,
+			recommendation: params.recommendation,
 			response: response ?? undefined,
 			dismissed: response === null,
 		};
@@ -98,27 +101,30 @@ export const askUserTool = defineTool({
 			details,
 		};
 	},
-	renderCall(args, theme, context) {
+	renderCall(_args, theme, context) {
+		if (context.isPartial) {
+			return new Container();
+		}
 		return renderToolHeader(theme, context.lastComponent, {
 			title: "Ask User",
-			arg: args.question,
 		});
 	},
 	renderResult(result, _options, theme) {
 		const details = result.details as AskUserDetails | undefined;
-		if (!details) return new Text("", 0, 0);
 		const body = new Container();
+		if (!details) return body;
 		body.addChild(
-			new Text(theme.fg("muted", theme.bold(details.question)), 0, 0),
+			buildPromptBody(theme, {
+				question: details.question,
+				context: details.context,
+				recommendation: details.recommendation,
+			}),
 		);
 		body.addChild(new Text("", 0, 0));
-		if (details.dismissed) {
-			body.addChild(
-				new Text(theme.fg("muted", "User dismissed the question."), 0, 0),
-			);
-			return body;
-		}
-		body.addChild(new Text(theme.fg("text", details.response ?? ""), 0, 0));
+		const reply = details.dismissed
+			? "User dismissed the question."
+			: (details.response ?? "");
+		body.addChild(new Text(theme.fg("toolOutput", reply), 0, 0));
 		return body;
 	},
 });
