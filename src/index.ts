@@ -4,7 +4,10 @@ import { registerFooter } from "./features/footer/index.js";
 import { registerHandover } from "./features/handover/index.js";
 import { registerPermissions } from "./features/permissions/index.js";
 import { registerPlan } from "./features/plan/index.js";
-import { registerSystemPromptOverride } from "./features/system-prompt/index.js";
+import {
+	registerSystemPromptDump,
+	registerSystemPromptOverride,
+} from "./features/system-prompt/index.js";
 import { registerWelcome } from "./features/welcome/index.js";
 import { loadSettings } from "./shared/settings.js";
 import { askUserTool } from "./tools/ask-user/index.js";
@@ -25,6 +28,7 @@ export default function (pi: ExtensionAPI) {
 	registerHandover(pi);
 	registerFooter(pi);
 	registerWelcome(pi);
+	registerSystemPromptDump(pi);
 
 	pi.on("session_start", async () => {
 		await loadSettings();

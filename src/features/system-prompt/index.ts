@@ -1,3 +1,6 @@
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 const FIRST_SENTENCE =
@@ -53,5 +56,30 @@ export function registerSystemPromptOverride(pi: ExtensionAPI): void {
 				ctx.model?.provider,
 			),
 		};
+	});
+}
+
+let lastSystemPrompt: string | null = null;
+
+export function registerSystemPromptDump(pi: ExtensionAPI): void {
+	pi.on("before_agent_start", async (event) => {
+		lastSystemPrompt = event.systemPrompt;
+	});
+
+	pi.registerCommand("dump-system-prompt", {
+		description: "Write the active system prompt to a temp file",
+		handler: async (_args, ctx) => {
+			if (lastSystemPrompt === null) {
+				ctx.ui.notify(
+					"No system prompt captured yet. Send a message first.",
+					"warning",
+				);
+				return;
+			}
+			const dir = await mkdtemp(path.join(tmpdir(), "pi-system-prompt-"));
+			const file = path.join(dir, "system-prompt.txt");
+			await writeFile(file, lastSystemPrompt, "utf8");
+			ctx.ui.notify(`System prompt dumped to ${file}`, "info");
+		},
 	});
 }
