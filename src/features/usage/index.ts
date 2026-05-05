@@ -22,7 +22,7 @@ function scheduleRefresh(): void {
 
 	refreshTimer = setInterval(() => {
 		if (!pendingFetch) {
-			updateStatus();
+			updateStatus(storedCtx?.model);
 		}
 	}, REFRESH_INTERVAL);
 }
