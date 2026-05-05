@@ -15,7 +15,7 @@ let currentCodexUsageData: CodexUsageData | null = null;
 
 const STATUS_KEY = "anthropic-usage";
 const CODEX_STATUS_KEY = "codex-usage";
-const REFRESH_INTERVAL = 10_000; // 10 seconds
+const REFRESH_INTERVAL = 30_000; // 30 seconds
 
 let pendingFetch: Promise<UsageData | null> | undefined;
 let storedCtx: ExtensionContext | undefined;
@@ -60,8 +60,8 @@ function updateStatus(model?: { provider: string }): void {
 	pendingFetch = getUsageData().then((data) => {
 		pendingFetch = undefined;
 		if (!data) {
-			storedCtx?.ui.setStatus(STATUS_KEY, undefined);
-			currentUsageData = null;
+			// Transient failure (rate-limit, network, parse). Keep the
+			// previous snapshot on screen instead of wiping the segment.
 			requestFooterRender();
 			return null;
 		}

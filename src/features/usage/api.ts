@@ -13,7 +13,7 @@ import { AuthStorage } from "@mariozechner/pi-coding-agent";
 const CACHE_DIR = join(homedir(), ".pi", "agent", "cache", "usage");
 const CACHE_FILE = join(CACHE_DIR, "usage.json");
 const LOCK_FILE = join(CACHE_DIR, "usage.lock");
-const CACHE_MAX_AGE = 10;
+const CACHE_MAX_AGE = 30;
 const LOCK_MAX_AGE = 10;
 const API_HOST = "api.anthropic.com";
 const API_PATH = "/api/oauth/usage";
@@ -236,38 +236,22 @@ function parseUsageResponse(raw: string): UsageData | null {
 	};
 }
 
-function staleUsageData(): UsageData {
-	return {
-		sessionUtilization: null,
-		sessionResetAt: null,
-		weeklyUtilization: null,
-		weeklyResetAt: null,
-		extraEnabled: null,
-		extraLimit: null,
-		extraUsed: null,
-		extraUtilization: null,
-	};
-}
-
-async function fetchUsageFromApi(token: string): Promise<UsageData> {
+async function fetchUsageFromApi(token: string): Promise<UsageData | null> {
 	const now = Math.floor(Date.now() / 1000);
 
-	// Memory cache
-	if (cache) {
+	// Memory cache (fresh, success)
+	if (cache && cache.error == null) {
 		const age = now - Math.floor(cache.time / 1000);
-		if (
-			(cache.error == null && age < CACHE_MAX_AGE) ||
-			(cache.error != null && age < cache.errorMaxAge)
-		) {
-			return cache.data ?? staleUsageData();
+		if (age < CACHE_MAX_AGE) {
+			return cache.data;
 		}
 	}
 
-	// File cache
+	// File cache (fresh)
 	const fileCache = readCacheFile();
-	if (fileCache) {
+	if (fileCache?.data) {
 		const age = now - Math.floor(fileCache.time / 1000);
-		if (age < CACHE_MAX_AGE && fileCache.data) {
+		if (age < CACHE_MAX_AGE) {
 			cache = {
 				data: fileCache.data,
 				time: fileCache.time,
@@ -278,17 +262,26 @@ async function fetchUsageFromApi(token: string): Promise<UsageData> {
 		}
 	}
 
-	// Lock check
+	const lastKnown: UsageData | null = cache?.data ?? fileCache?.data ?? null;
+
+	// In-memory error backoff (still serve last-known data while we wait)
+	if (cache && cache.error != null) {
+		const age = now - Math.floor(cache.time / 1000);
+		if (age < cache.errorMaxAge) {
+			return lastKnown;
+		}
+	}
+
+	// Cross-process lock (another instance is fetching, or recently failed)
 	const lock = readLock(now);
 	if (lock) {
-		const entry: CacheEntry = {
-			data: staleUsageData(),
+		cache = {
+			data: lastKnown,
 			time: Date.now(),
 			error: lock.error,
 			errorMaxAge: Math.max(1, lock.blockedUntil - now),
 		};
-		cache = entry;
-		return staleUsageData();
+		return lastKnown;
 	}
 
 	writeLock(now + LOCK_MAX_AGE, "timeout");
@@ -296,47 +289,36 @@ async function fetchUsageFromApi(token: string): Promise<UsageData> {
 	const resp = await fetchApi(token);
 	if (resp.kind === "rate-limited") {
 		writeLock(now + resp.retryAfter, "rate-limited");
-		const entry: CacheEntry = {
-			data: staleUsageData(),
+		cache = {
+			data: lastKnown,
 			time: Date.now(),
 			error: "rate-limited",
 			errorMaxAge: resp.retryAfter,
 		};
-		cache = entry;
-		return staleUsageData();
+		return lastKnown;
 	}
 	if (resp.kind === "error") {
-		const entry: CacheEntry = {
-			data: staleUsageData(),
+		cache = {
+			data: lastKnown,
 			time: Date.now(),
 			error: "api-error",
 			errorMaxAge: LOCK_MAX_AGE,
 		};
-		cache = entry;
-		return staleUsageData();
+		return lastKnown;
 	}
 
 	const data = parseUsageResponse(resp.body);
-	if (!data) {
-		const entry: CacheEntry = {
-			data: staleUsageData(),
+	if (
+		!data ||
+		(data.sessionUtilization == null && data.weeklyUtilization == null)
+	) {
+		cache = {
+			data: lastKnown,
 			time: Date.now(),
 			error: "parse-error",
 			errorMaxAge: LOCK_MAX_AGE,
 		};
-		cache = entry;
-		return staleUsageData();
-	}
-
-	if (data.sessionUtilization == null && data.weeklyUtilization == null) {
-		const entry: CacheEntry = {
-			data: staleUsageData(),
-			time: Date.now(),
-			error: "parse-error",
-			errorMaxAge: LOCK_MAX_AGE,
-		};
-		cache = entry;
-		return staleUsageData();
+		return lastKnown;
 	}
 
 	writeCacheFile(data);
