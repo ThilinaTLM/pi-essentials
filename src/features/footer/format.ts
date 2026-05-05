@@ -6,8 +6,10 @@ import type {
 	ThemeColor,
 } from "@mariozechner/pi-coding-agent";
 import { prettyModelLabel } from "../../shared/ui/model.js";
-import { formatResetTime as formatResetTimeRaw } from "../usage/api.js";
-import { formatResetAfterSeconds as formatResetAfterSecondsRaw } from "../usage/codex.js";
+import {
+	formatCodexResetAfterSeconds as formatResetAfterSecondsRaw,
+	formatAnthropicResetTime as formatResetTimeRaw,
+} from "../usage/index.js";
 
 const BRANCH_GLYPH = "";
 

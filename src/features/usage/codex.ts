@@ -1,3 +1,9 @@
+import type {
+	ExtensionAPI,
+	ExtensionContext,
+} from "@mariozechner/pi-coding-agent";
+import { requestFooterRender } from "../footer/index.js";
+
 export type CodexUsageData = {
 	primaryUsedPercent: number | null;
 	primaryResetAfterSeconds: number | null;
@@ -12,28 +18,29 @@ export type CodexUsageData = {
 	activeLimit: string | null;
 };
 
-const CODEX_HEADER_PREFIX = "x-codex-";
+const STATUS_KEY = "codex-usage";
+const HEADER_PREFIX = "x-codex-";
+
+let snapshot: CodexUsageData | null = null;
+let storedCtx: ExtensionContext | undefined;
 
 function getHeader(
 	headers: Record<string, string>,
 	name: string,
 ): string | undefined {
-	// Try lowercased (Node.js normalizes headers to lowercase)
-	const lower = `${CODEX_HEADER_PREFIX}${name}`.toLowerCase();
+	// Node.js normalizes headers to lowercase, but try both for safety.
+	const lower = `${HEADER_PREFIX}${name}`.toLowerCase();
 	if (headers[lower] !== undefined) return headers[lower];
-	// Try original casing
-	const original = `${CODEX_HEADER_PREFIX}${name}`;
+	const original = `${HEADER_PREFIX}${name}`;
 	if (headers[original] !== undefined) return headers[original];
 	return undefined;
 }
 
-export function parseCodexHeaders(
-	headers: Record<string, string>,
-): CodexUsageData | null {
+function parseHeaders(headers: Record<string, string>): CodexUsageData | null {
 	const pct = getHeader(headers, "primary-used-percent");
 	const secPct = getHeader(headers, "secondary-used-percent");
 
-	// If neither primary nor secondary percent is present, these aren't codex headers
+	// If neither primary nor secondary percent is present, these aren't codex headers.
 	if (pct === undefined && secPct === undefined) {
 		return null;
 	}
@@ -66,7 +73,37 @@ export function parseCodexHeaders(
 	};
 }
 
-export function formatResetAfterSeconds(seconds: number | null): string | null {
+function isCodex(model: { provider: string } | undefined): boolean {
+	return model?.provider === "openai-codex";
+}
+
+function clearSnapshot(): void {
+	snapshot = null;
+	storedCtx?.ui.setStatus(STATUS_KEY, undefined);
+	requestFooterRender();
+}
+
+function formatStatus(data: CodexUsageData): string | null {
+	const parts: string[] = [];
+
+	if (data.primaryUsedPercent != null) {
+		parts.push(`${Math.round(data.primaryUsedPercent)}%`);
+	}
+
+	if (data.secondaryUsedPercent != null) {
+		parts.push(`${Math.round(data.secondaryUsedPercent)}%`);
+	}
+
+	return parts.length > 0 ? parts.join(" │ ") : null;
+}
+
+export function getCodexUsageSnapshot(): CodexUsageData | null {
+	return snapshot;
+}
+
+export function formatCodexResetAfterSeconds(
+	seconds: number | null,
+): string | null {
 	if (seconds == null || seconds <= 0) return null;
 
 	const totalMinutes = Math.floor(seconds / 60);
@@ -79,16 +116,33 @@ export function formatResetAfterSeconds(seconds: number | null): string | null {
 	return `${minutes}m`;
 }
 
-export function formatCodexUsageStatus(data: CodexUsageData): string | null {
-	const parts: string[] = [];
+export function registerCodexUsage(pi: ExtensionAPI): void {
+	pi.on("session_start", (_event, ctx) => {
+		storedCtx = ctx;
+	});
 
-	if (data.primaryUsedPercent != null) {
-		parts.push(`${Math.round(data.primaryUsedPercent)}%`);
-	}
+	pi.on("model_select", (event) => {
+		const model = (event as { model: { provider: string } }).model;
+		if (!isCodex(model)) {
+			clearSnapshot();
+		}
+	});
 
-	if (data.secondaryUsedPercent != null) {
-		parts.push(`${Math.round(data.secondaryUsedPercent)}%`);
-	}
+	pi.on(
+		"after_provider_response",
+		(event: {
+			type: string;
+			status: number;
+			headers: Record<string, string>;
+		}) => {
+			if (!isCodex(storedCtx?.model)) return;
 
-	return parts.length > 0 ? parts.join(" │ ") : null;
+			const data = parseHeaders(event.headers);
+			if (!data) return;
+
+			snapshot = data;
+			storedCtx?.ui.setStatus(STATUS_KEY, formatStatus(data) ?? undefined);
+			requestFooterRender();
+		},
+	);
 }

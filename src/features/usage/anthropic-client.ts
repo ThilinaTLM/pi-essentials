@@ -20,7 +20,7 @@ const API_PATH = "/api/oauth/usage";
 const API_TIMEOUT_MS = 5000;
 const DEFAULT_RATE_LIMIT_BACKOFF = 30;
 
-export type UsageData = {
+export type AnthropicUsageData = {
 	sessionUtilization: number | null;
 	sessionResetAt: string | null;
 	weeklyUtilization: number | null;
@@ -39,7 +39,7 @@ type UsageError =
 	| "timeout";
 
 type CacheEntry = {
-	data: UsageData | null;
+	data: AnthropicUsageData | null;
 	time: number;
 	error: UsageError | null;
 	errorMaxAge: number;
@@ -53,12 +53,15 @@ function ensureCacheDir(): void {
 	}
 }
 
-function readCacheFile(): { data: UsageData | null; time: number } | null {
+function readCacheFile(): {
+	data: AnthropicUsageData | null;
+	time: number;
+} | null {
 	try {
 		const raw = readFileSync(CACHE_FILE, "utf8");
 		const parsed = JSON.parse(raw);
 		return {
-			data: parsed as UsageData | null,
+			data: parsed as AnthropicUsageData | null,
 			time: statSync(CACHE_FILE).mtimeMs,
 		};
 	} catch {
@@ -66,7 +69,7 @@ function readCacheFile(): { data: UsageData | null; time: number } | null {
 	}
 }
 
-function writeCacheFile(data: UsageData): void {
+function writeCacheFile(data: AnthropicUsageData): void {
 	try {
 		ensureCacheDir();
 		writeFileSync(CACHE_FILE, JSON.stringify(data));
@@ -198,7 +201,7 @@ async function fetchApi(
 	});
 }
 
-function parseUsageResponse(raw: string): UsageData | null {
+function parseUsageResponse(raw: string): AnthropicUsageData | null {
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(raw);
@@ -236,7 +239,9 @@ function parseUsageResponse(raw: string): UsageData | null {
 	};
 }
 
-async function fetchUsageFromApi(token: string): Promise<UsageData | null> {
+async function fetchUsageFromApi(
+	token: string,
+): Promise<AnthropicUsageData | null> {
 	const now = Math.floor(Date.now() / 1000);
 
 	// Memory cache (fresh, success)
@@ -262,7 +267,8 @@ async function fetchUsageFromApi(token: string): Promise<UsageData | null> {
 		}
 	}
 
-	const lastKnown: UsageData | null = cache?.data ?? fileCache?.data ?? null;
+	const lastKnown: AnthropicUsageData | null =
+		cache?.data ?? fileCache?.data ?? null;
 
 	// In-memory error backoff (still serve last-known data while we wait)
 	if (cache && cache.error != null) {
@@ -326,7 +332,7 @@ async function fetchUsageFromApi(token: string): Promise<UsageData | null> {
 	return data;
 }
 
-export async function getUsageData(): Promise<UsageData | null> {
+export async function getAnthropicUsageData(): Promise<AnthropicUsageData | null> {
 	const storage = AuthStorage.create();
 	const token = await storage.getApiKey("anthropic");
 	if (!token) {
@@ -337,37 +343,4 @@ export async function getUsageData(): Promise<UsageData | null> {
 	} catch {
 		return null;
 	}
-}
-
-export function formatResetTime(resetAt: string | null): string | null {
-	if (!resetAt) return null;
-
-	const target = new Date(resetAt).getTime();
-	if (Number.isNaN(target)) return null;
-
-	const diffMs = target - Date.now();
-	if (diffMs <= 0) return null;
-
-	const totalMinutes = Math.floor(diffMs / 60_000);
-	const hours = Math.floor(totalMinutes / 60);
-	const minutes = totalMinutes % 60;
-
-	if (hours > 0) {
-		return minutes > 0 ? `${hours}h${minutes}m` : `${hours}h`;
-	}
-	return `${minutes}m`;
-}
-
-export function formatUsageStatus(data: UsageData): string | null {
-	const parts: string[] = [];
-
-	if (data.sessionUtilization != null) {
-		parts.push(`${Math.round(data.sessionUtilization)}%`);
-	}
-
-	if (data.weeklyUtilization != null) {
-		parts.push(`${Math.round(data.weeklyUtilization)}%`);
-	}
-
-	return parts.length > 0 ? parts.join(" │ ") : null;
 }
