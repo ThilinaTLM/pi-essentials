@@ -24,10 +24,19 @@ import {
 import { isGitDirty } from "./git.js";
 import { buildFooterLine } from "./layout.js";
 
+const GIT_REFRESH_INTERVAL = 3_000;
+
+let onRenderRequest: (() => void) | undefined;
+
+export function requestFooterRender(): void {
+	onRenderRequest?.();
+}
+
 export function registerFooter(pi: ExtensionAPI): void {
 	let gitDirty = false;
 	let renderRequest: (() => void) | undefined;
 	let refreshCounter = 0;
+	let gitRefreshTimer: ReturnType<typeof setInterval> | undefined;
 
 	async function refreshGitDirty(cwd: string): Promise<void> {
 		const refreshId = ++refreshCounter;
@@ -39,9 +48,24 @@ export function registerFooter(pi: ExtensionAPI): void {
 		renderRequest?.();
 	}
 
+	function startGitRefresh(cwd: string): void {
+		stopGitRefresh();
+		gitRefreshTimer = setInterval(() => {
+			void refreshGitDirty(cwd);
+		}, GIT_REFRESH_INTERVAL);
+	}
+
+	function stopGitRefresh(): void {
+		if (gitRefreshTimer) {
+			clearInterval(gitRefreshTimer);
+			gitRefreshTimer = undefined;
+		}
+	}
+
 	function installFooter(ctx: ExtensionContext): void {
 		ctx.ui.setFooter((tui, theme, footerData) => {
 			renderRequest = () => tui.requestRender();
+			onRenderRequest = renderRequest;
 
 			const unsubscribeBranch = footerData.onBranchChange(() => {
 				void refreshGitDirty(ctx.cwd);
@@ -58,6 +82,7 @@ export function registerFooter(pi: ExtensionAPI): void {
 					unsubscribeBranch();
 					unsubscribeLeft();
 					renderRequest = undefined;
+					onRenderRequest = undefined;
 				},
 				render(width: number): string[] {
 					const usage = aggregateUsage(ctx);
@@ -153,6 +178,7 @@ export function registerFooter(pi: ExtensionAPI): void {
 	pi.on("session_start", async (_event, ctx) => {
 		installFooter(ctx);
 		await refreshGitDirty(ctx.cwd);
+		startGitRefresh(ctx.cwd);
 	});
 
 	pi.on("turn_end", async (_event, ctx) => {
@@ -161,5 +187,9 @@ export function registerFooter(pi: ExtensionAPI): void {
 
 	pi.on("model_select", async () => {
 		renderRequest?.();
+	});
+
+	pi.on("session_shutdown", () => {
+		stopGitRefresh();
 	});
 }

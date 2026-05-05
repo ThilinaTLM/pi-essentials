@@ -2,6 +2,7 @@ import type {
 	ExtensionAPI,
 	ExtensionContext,
 } from "@mariozechner/pi-coding-agent";
+import { requestFooterRender } from "../footer/index.js";
 import { formatUsageStatus, getUsageData, type UsageData } from "./api.js";
 
 let currentUsageData: UsageData | null = null;
@@ -11,7 +12,6 @@ const REFRESH_INTERVAL = 10_000; // 10 seconds
 
 let pendingFetch: Promise<UsageData | null> | undefined;
 let storedCtx: ExtensionContext | undefined;
-let renderRequest: (() => void) | undefined;
 let refreshTimer: ReturnType<typeof setInterval> | undefined;
 
 function scheduleRefresh(): void {
@@ -44,6 +44,7 @@ function updateStatus(model?: { provider: string }): void {
 		storedCtx.ui.setStatus(STATUS_KEY, undefined);
 		pendingFetch = undefined;
 		currentUsageData = null;
+		requestFooterRender();
 		return;
 	}
 
@@ -54,12 +55,13 @@ function updateStatus(model?: { provider: string }): void {
 		if (!data) {
 			storedCtx?.ui.setStatus(STATUS_KEY, undefined);
 			currentUsageData = null;
+			requestFooterRender();
 			return null;
 		}
 		currentUsageData = data;
 		const text = formatUsageStatus(data);
 		storedCtx?.ui.setStatus(STATUS_KEY, text ?? undefined);
-		renderRequest?.();
+		requestFooterRender();
 		return data;
 	});
 }
@@ -71,10 +73,6 @@ export function getUsageSnapshot(): UsageData | null {
 export function registerUsage(pi: ExtensionAPI): void {
 	pi.on("session_start", (_event, ctx) => {
 		storedCtx = ctx;
-		renderRequest = () => {
-			// Footer listens to setStatus, but requestRender would need a signal
-			// from the footer component. We call setStatus which the footer reads.
-		};
 		updateStatus(ctx.model);
 		scheduleRefresh();
 	});
