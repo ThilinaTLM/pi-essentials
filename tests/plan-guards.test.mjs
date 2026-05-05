@@ -134,4 +134,40 @@ describe("plan-mode bash guard", () => {
 			"git -C . status --short && git diff --stat || git log --oneline -1",
 		]);
 	});
+
+	describe("shell-quote improvements: quoting, comments, new blocklist entries", () => {
+		// Single-quoted $() is literal, not command substitution
+		expectAllowed([
+			"echo '$(pwd)'",
+			"rg 'TODO' src",
+			"git log --oneline -5 # just looking",
+			"echo hello\\;world",
+			"rg foo 2>/dev/null",
+			"rg foo &>/dev/null",
+			"rg foo src >/dev/null 2>&1",
+			"rg foo src >>/dev/null",
+			"curl https://example.com",
+			"curl --head https://example.com",
+			"docker ps --format '{{.Names}}'",
+		]);
+
+		// Double-quoted $() IS command substitution and should be blocked
+		expectBlocked([
+			'echo "$(pwd)"',
+			"apt install foo",
+			"apt-get update",
+			"brew install foo",
+			"pip install foo",
+			"pip3 install foo",
+			"cargo build",
+			"gem install foo",
+			"yum install foo",
+			"dnf install foo",
+			"deno eval 'console.log(1)'",
+			"deno -e 'console.log(1)'",
+			"echo hello >output.txt",
+			"echo hello >>output.txt",
+			"cat <<< 'hello'",
+		]);
+	});
 });
