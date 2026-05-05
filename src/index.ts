@@ -8,6 +8,7 @@ import {
 	registerSystemPromptDump,
 	registerSystemPromptOverride,
 } from "./features/system-prompt/index.js";
+import { registerUsage } from "./features/usage/index.js";
 import { registerWelcome } from "./features/welcome/index.js";
 import { loadSettings } from "./shared/settings.js";
 import { askUserTool } from "./tools/ask-user/index.js";
@@ -29,6 +30,7 @@ export default function (pi: ExtensionAPI) {
 	registerFooter(pi);
 	registerWelcome(pi);
 	registerSystemPromptDump(pi);
+	registerUsage(pi);
 
 	pi.on("session_start", async () => {
 		await loadSettings();

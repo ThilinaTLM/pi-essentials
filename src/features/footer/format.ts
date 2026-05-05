@@ -6,13 +6,13 @@ import type {
 	ThemeColor,
 } from "@mariozechner/pi-coding-agent";
 import { prettyModelLabel } from "../../shared/ui/model.js";
+import { formatResetTime as formatResetTimeRaw } from "../usage/api.js";
 
 const BRANCH_GLYPH = "";
 
-const CONTEXT_GLYPH = "󰍛";
-
 export const LEFT_SEP = " │ ";
-export const RIGHT_SEP = "  ";
+export const GROUP_SEP = " │ ";
+export const INNER_SEP = " · ";
 
 export type ThemeLike = ExtensionContext["ui"]["theme"];
 
@@ -20,6 +20,7 @@ export type FooterSegment = {
 	key: string;
 	text: string;
 	required?: boolean;
+	group?: string;
 };
 
 export type AggregatedUsage = {
@@ -109,10 +110,7 @@ export function aggregateUsage(ctx: ExtensionContext): AggregatedUsage {
 export function formatContext(theme: ThemeLike, ctx: ExtensionContext): string {
 	const usage = ctx.getContextUsage();
 	const percent = usage?.percent;
-	const text =
-		percent == null
-			? `${CONTEXT_GLYPH} --`
-			: `${CONTEXT_GLYPH} ${Math.round(percent)}%`;
+	const text = percent == null ? "--" : `${Math.round(percent)}%`;
 
 	if (percent == null) {
 		return theme.fg("dim", text);
@@ -133,7 +131,7 @@ export function formatTokenCount(
 	if (usage.totalTokens <= 0) {
 		return null;
 	}
-	return theme.fg("dim", `${formatCompactNumber(usage.totalTokens)} tok`);
+	return theme.fg("dim", `${formatCompactNumber(usage.totalTokens)}tok`);
 }
 
 export function formatCost(theme: ThemeLike, usage: AggregatedUsage): string {
@@ -169,6 +167,28 @@ export function formatModelWithThinking(
 function titleCaseThinking(level: string): string {
 	if (level === "xhigh") return "XHigh";
 	return level.charAt(0).toUpperCase() + level.slice(1);
+}
+
+export function formatUtilizationPercent(
+	theme: ThemeLike,
+	percent: number,
+): string {
+	if (percent >= 80) {
+		return theme.fg("error", `${Math.round(percent)}%`);
+	}
+	if (percent >= 60) {
+		return theme.fg("warning", `${Math.round(percent)}%`);
+	}
+	return theme.fg("muted", `${Math.round(percent)}%`);
+}
+
+export function formatResetTimeDim(
+	theme: ThemeLike,
+	resetAt: string | null,
+): string | null {
+	const text = formatResetTimeRaw(resetAt);
+	if (!text) return null;
+	return theme.fg("dim", text);
 }
 
 export function formatBranch(

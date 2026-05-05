@@ -6,6 +6,7 @@ import {
 	getFooterLeftItems,
 	onFooterLeftChange,
 } from "../../shared/footer-left.js";
+import { getUsageSnapshot } from "../usage/index.js";
 import {
 	aggregateUsage,
 	type FooterSegment,
@@ -13,10 +14,11 @@ import {
 	formatContext,
 	formatCost,
 	formatModelWithThinking,
+	formatResetTimeDim,
 	formatTokenCount,
+	formatUtilizationPercent,
 	joinSegments,
 	LEFT_SEP,
-	RIGHT_SEP,
 	shortenCwd,
 } from "./format.js";
 import { isGitDirty } from "./git.js";
@@ -65,35 +67,82 @@ export function registerFooter(pi: ExtensionAPI): void {
 						formatBranch(theme, footerData.getGitBranch(), gitDirty),
 					].filter((segment): segment is string => Boolean(segment));
 
-					const statusSegments: FooterSegment[] = [
-						...footerData.getExtensionStatuses().values(),
-					].map((text) => ({
-						key: "status",
-						text,
-					}));
+					const anthropicData = getUsageSnapshot();
+					const rightSegments: FooterSegment[] = [];
+
+					// Group 1: Anthropic Usage
+					if (anthropicData) {
+						const usageItems: string[] = [];
+
+						if (anthropicData.sessionUtilization != null) {
+							const sessionPct = formatUtilizationPercent(
+								theme,
+								anthropicData.sessionUtilization,
+							);
+							const resetText = formatResetTimeDim(
+								theme,
+								anthropicData.sessionResetAt,
+							);
+							usageItems.push(
+								resetText
+									? `${sessionPct} ${theme.fg("dim", "(")}${resetText}${theme.fg("dim", ")")}`
+									: sessionPct,
+							);
+						}
+						if (anthropicData.weeklyUtilization != null) {
+							usageItems.push(
+								formatUtilizationPercent(
+									theme,
+									anthropicData.weeklyUtilization,
+								),
+							);
+						}
+
+						for (const item of usageItems) {
+							rightSegments.push({
+								key: "usage",
+								text: item,
+								group: "usage",
+							});
+						}
+					}
+
+					// Group 2: Context + Tokens + Cost
+					rightSegments.push({
+						key: "context",
+						text: formatContext(theme, ctx),
+						required: true,
+						group: "session",
+					});
 
 					const tokenSegment = formatTokenCount(theme, usage);
-					const rightSegments: FooterSegment[] = [
-						{ key: "context", text: formatContext(theme, ctx), required: true },
-						...(tokenSegment ? [{ key: "tokens", text: tokenSegment }] : []),
-						{ key: "cost", text: formatCost(theme, usage) },
-						{
-							key: "model",
-							text: formatModelWithThinking(theme, ctx, pi),
-							required: true,
-						},
-						...statusSegments,
-					].filter((segment): segment is FooterSegment =>
-						Boolean(segment.text),
-					);
+					if (tokenSegment) {
+						rightSegments.push({
+							key: "tokens",
+							text: tokenSegment,
+							group: "session",
+						});
+					}
+
+					rightSegments.push({
+						key: "cost",
+						text: formatCost(theme, usage),
+						group: "session",
+					});
+
+					// Group 3: Model + Thinking (ungrouped)
+					rightSegments.push({
+						key: "model",
+						text: formatModelWithThinking(theme, ctx, pi),
+						required: true,
+					});
 
 					const left = joinSegments(theme, leftSegments, LEFT_SEP);
 					const line = buildFooterLine(
 						theme,
 						width,
 						left,
-						rightSegments,
-						RIGHT_SEP,
+						rightSegments.filter((segment): boolean => Boolean(segment.text)),
 					);
 					return [line];
 				},
