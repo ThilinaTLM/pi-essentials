@@ -6,7 +6,10 @@ import {
 	getFooterLeftItems,
 	onFooterLeftChange,
 } from "../../shared/footer-left.js";
-import { getUsageSnapshot } from "../usage/index.js";
+import {
+	getAnthropicUsageSnapshot,
+	getCodexUsageSnapshot,
+} from "../usage/index.js";
 import {
 	aggregateUsage,
 	type FooterSegment,
@@ -14,6 +17,7 @@ import {
 	formatContext,
 	formatCost,
 	formatModelWithThinking,
+	formatResetAfterSecondsDim,
 	formatResetTimeDim,
 	formatTokenCount,
 	formatUtilizationPercent,
@@ -92,7 +96,8 @@ export function registerFooter(pi: ExtensionAPI): void {
 						formatBranch(theme, footerData.getGitBranch(), gitDirty),
 					].filter((segment): segment is string => Boolean(segment));
 
-					const anthropicData = getUsageSnapshot();
+					const anthropicData = getAnthropicUsageSnapshot();
+					const codexData = getCodexUsageSnapshot();
 					const rightSegments: FooterSegment[] = [];
 
 					// Group 1: Anthropic Usage
@@ -128,6 +133,40 @@ export function registerFooter(pi: ExtensionAPI): void {
 								key: "usage",
 								text: item,
 								group: "usage",
+							});
+						}
+					}
+
+					// Group 1b: Codex Usage
+					if (codexData) {
+						const usageItems: string[] = [];
+
+						if (codexData.primaryUsedPercent != null) {
+							const sessionPct = formatUtilizationPercent(
+								theme,
+								codexData.primaryUsedPercent,
+							);
+							const resetText = formatResetAfterSecondsDim(
+								theme,
+								codexData.primaryResetAfterSeconds,
+							);
+							usageItems.push(
+								resetText
+									? `${sessionPct} ${theme.fg("dim", "(")}${resetText}${theme.fg("dim", ")")}`
+									: sessionPct,
+							);
+						}
+						if (codexData.secondaryUsedPercent != null) {
+							usageItems.push(
+								formatUtilizationPercent(theme, codexData.secondaryUsedPercent),
+							);
+						}
+
+						for (const item of usageItems) {
+							rightSegments.push({
+								key: "codex-usage",
+								text: item,
+								group: "codex-usage",
 							});
 						}
 					}

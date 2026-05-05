@@ -57,7 +57,7 @@ export function buildFooterLine(
 	left: string,
 	rightSegments: FooterSegment[],
 ): string {
-	const dropOrder = ["usage", "cost", "tokens"];
+	const dropOrder = ["usage", "codex-usage", "cost", "tokens"];
 	const activeSegments = [...rightSegments];
 
 	const getRight = () => renderGroupedSegments(theme, activeSegments);

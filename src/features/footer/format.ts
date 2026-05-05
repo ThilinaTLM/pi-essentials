@@ -7,6 +7,7 @@ import type {
 } from "@mariozechner/pi-coding-agent";
 import { prettyModelLabel } from "../../shared/ui/model.js";
 import { formatResetTime as formatResetTimeRaw } from "../usage/api.js";
+import { formatResetAfterSeconds as formatResetAfterSecondsRaw } from "../usage/codex.js";
 
 const BRANCH_GLYPH = "";
 
@@ -187,6 +188,15 @@ export function formatResetTimeDim(
 	resetAt: string | null,
 ): string | null {
 	const text = formatResetTimeRaw(resetAt);
+	if (!text) return null;
+	return theme.fg("dim", text);
+}
+
+export function formatResetAfterSecondsDim(
+	theme: ThemeLike,
+	seconds: number | null,
+): string | null {
+	const text = formatResetAfterSecondsRaw(seconds);
 	if (!text) return null;
 	return theme.fg("dim", text);
 }

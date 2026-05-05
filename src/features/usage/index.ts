@@ -4,10 +4,17 @@ import type {
 } from "@mariozechner/pi-coding-agent";
 import { requestFooterRender } from "../footer/index.js";
 import { formatUsageStatus, getUsageData, type UsageData } from "./api.js";
+import {
+	type CodexUsageData,
+	formatCodexUsageStatus,
+	parseCodexHeaders,
+} from "./codex.js";
 
 let currentUsageData: UsageData | null = null;
+let currentCodexUsageData: CodexUsageData | null = null;
 
 const STATUS_KEY = "anthropic-usage";
+const CODEX_STATUS_KEY = "codex-usage";
 const REFRESH_INTERVAL = 10_000; // 10 seconds
 
 let pendingFetch: Promise<UsageData | null> | undefined;
@@ -66,8 +73,12 @@ function updateStatus(model?: { provider: string }): void {
 	});
 }
 
-export function getUsageSnapshot(): UsageData | null {
+export function getAnthropicUsageSnapshot(): UsageData | null {
 	return currentUsageData;
+}
+
+export function getCodexUsageSnapshot(): CodexUsageData | null {
+	return currentCodexUsageData;
 }
 
 export function registerUsage(pi: ExtensionAPI): void {
@@ -81,10 +92,38 @@ export function registerUsage(pi: ExtensionAPI): void {
 		const model = (event as { model: { provider: string } }).model;
 		cancelRefresh();
 		updateStatus(model);
+
 		if (model.provider === "anthropic") {
 			scheduleRefresh();
 		}
+
+		// Clear codex usage when switching away from codex
+		if (model.provider !== "openai-codex") {
+			currentCodexUsageData = null;
+			storedCtx?.ui.setStatus(CODEX_STATUS_KEY, undefined);
+			requestFooterRender();
+		}
 	});
+
+	pi.on(
+		"after_provider_response",
+		(event: {
+			type: string;
+			status: number;
+			headers: Record<string, string>;
+		}) => {
+			const provider = storedCtx?.model?.provider;
+			if (provider !== "openai-codex") return;
+
+			const data = parseCodexHeaders(event.headers);
+			if (!data) return;
+
+			currentCodexUsageData = data;
+			const text = formatCodexUsageStatus(data);
+			storedCtx?.ui.setStatus(CODEX_STATUS_KEY, text ?? undefined);
+			requestFooterRender();
+		},
+	);
 
 	pi.on("session_shutdown", () => {
 		cancelRefresh();
