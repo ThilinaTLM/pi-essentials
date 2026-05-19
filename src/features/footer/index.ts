@@ -25,22 +25,37 @@ import {
 	LEFT_SEP,
 	shortenCwd,
 } from "./format.js";
-import { isGitDirty } from "./git.js";
+import { createGitDirtyWatcher, isGitDirty } from "./git.js";
 import { buildFooterLine } from "./layout.js";
 
-const GIT_REFRESH_INTERVAL = 3_000;
+const GIT_REFRESH_DEBOUNCE_MS = 250;
+const GIT_MUTATING_TOOLS = new Set(["bash", "edit", "write"]);
 
-let onRenderRequest: (() => void) | undefined;
+let currentToken: symbol | undefined;
+let currentRequestRender: (() => void) | undefined;
+
+function setRenderTrigger(token: symbol, trigger: () => void): void {
+	currentToken = token;
+	currentRequestRender = trigger;
+}
+
+function clearRenderTrigger(token: symbol): void {
+	if (currentToken === token) {
+		currentToken = undefined;
+		currentRequestRender = undefined;
+	}
+}
 
 export function requestFooterRender(): void {
-	onRenderRequest?.();
+	currentRequestRender?.();
 }
 
 export function registerFooter(pi: ExtensionAPI): void {
 	let gitDirty = false;
-	let renderRequest: (() => void) | undefined;
+	let lastDirty: boolean | undefined;
 	let refreshCounter = 0;
-	let gitRefreshTimer: ReturnType<typeof setInterval> | undefined;
+	let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+	let gitWatcherDispose: (() => void) | undefined;
 
 	async function refreshGitDirty(cwd: string): Promise<void> {
 		const refreshId = ++refreshCounter;
@@ -49,30 +64,36 @@ export function registerFooter(pi: ExtensionAPI): void {
 			return;
 		}
 		gitDirty = dirty;
-		renderRequest?.();
-	}
-
-	function startGitRefresh(cwd: string): void {
-		stopGitRefresh();
-		gitRefreshTimer = setInterval(() => {
-			void refreshGitDirty(cwd);
-		}, GIT_REFRESH_INTERVAL);
-	}
-
-	function stopGitRefresh(): void {
-		if (gitRefreshTimer) {
-			clearInterval(gitRefreshTimer);
-			gitRefreshTimer = undefined;
+		if (lastDirty !== dirty) {
+			lastDirty = dirty;
+			currentRequestRender?.();
 		}
+	}
+
+	function scheduleGitRefresh(cwd: string): void {
+		if (refreshTimer) return;
+		refreshTimer = setTimeout(() => {
+			refreshTimer = undefined;
+			void refreshGitDirty(cwd);
+		}, GIT_REFRESH_DEBOUNCE_MS);
+	}
+
+	function teardownGitWatcher(): void {
+		if (refreshTimer) {
+			clearTimeout(refreshTimer);
+			refreshTimer = undefined;
+		}
+		gitWatcherDispose?.();
+		gitWatcherDispose = undefined;
 	}
 
 	function installFooter(ctx: ExtensionContext): void {
 		ctx.ui.setFooter((tui, theme, footerData) => {
-			renderRequest = () => tui.requestRender();
-			onRenderRequest = renderRequest;
+			const token = Symbol("footer");
+			setRenderTrigger(token, () => tui.requestRender());
 
 			const unsubscribeBranch = footerData.onBranchChange(() => {
-				void refreshGitDirty(ctx.cwd);
+				scheduleGitRefresh(ctx.cwd);
 				tui.requestRender();
 			});
 
@@ -85,8 +106,7 @@ export function registerFooter(pi: ExtensionAPI): void {
 				dispose() {
 					unsubscribeBranch();
 					unsubscribeLeft();
-					renderRequest = undefined;
-					onRenderRequest = undefined;
+					clearRenderTrigger(token);
 				},
 				render(width: number): string[] {
 					const usage = aggregateUsage(ctx);
@@ -216,19 +236,33 @@ export function registerFooter(pi: ExtensionAPI): void {
 
 	pi.on("session_start", async (_event, ctx) => {
 		installFooter(ctx);
+		teardownGitWatcher();
+		lastDirty = undefined;
 		await refreshGitDirty(ctx.cwd);
-		startGitRefresh(ctx.cwd);
+		gitWatcherDispose = createGitDirtyWatcher(ctx.cwd, () => {
+			scheduleGitRefresh(ctx.cwd);
+		}).dispose;
 	});
 
-	pi.on("turn_end", async (_event, ctx) => {
-		await refreshGitDirty(ctx.cwd);
+	pi.on("turn_end", (_event, ctx) => {
+		scheduleGitRefresh(ctx.cwd);
 	});
 
-	pi.on("model_select", async () => {
-		renderRequest?.();
+	pi.on("tool_result", (event, ctx) => {
+		if (GIT_MUTATING_TOOLS.has(event.toolName)) {
+			scheduleGitRefresh(ctx.cwd);
+		}
+	});
+
+	pi.on("user_bash", (_event, ctx) => {
+		scheduleGitRefresh(ctx.cwd);
+	});
+
+	pi.on("model_select", () => {
+		currentRequestRender?.();
 	});
 
 	pi.on("session_shutdown", () => {
-		stopGitRefresh();
+		teardownGitWatcher();
 	});
 }
