@@ -1,6 +1,6 @@
 import { mkdir, readFile } from "node:fs/promises";
-import { defineTool } from "@mariozechner/pi-coding-agent";
-import { Text } from "@mariozechner/pi-tui";
+import { defineTool } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { renderToolHeader } from "../../shared/ui/tool-header.js";
 import { isAllowedPlanPath, PLANS_DIR } from "./guards.js";

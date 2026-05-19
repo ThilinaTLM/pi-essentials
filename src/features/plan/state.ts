@@ -1,7 +1,7 @@
 import type {
 	ExtensionAPI,
 	ExtensionContext,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import { setPlanModeWidget } from "./ui.js";
 
 export const PLAN_MODE_STATE_ENTRY = "plan-mode-state";

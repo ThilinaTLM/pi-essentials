@@ -2,7 +2,7 @@ import { mkdir } from "node:fs/promises";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import { getPlanModeToolBlock, PLANS_DIR } from "./guards.js";
 import { buildPlanModeSystemPrompt } from "./prompt.js";
 import {

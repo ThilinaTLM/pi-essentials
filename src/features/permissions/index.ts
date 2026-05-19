@@ -2,7 +2,7 @@ import type {
 	ExtensionAPI,
 	ExtensionContext,
 	Theme,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import { setFooterLeftItem } from "../../shared/footer-left.js";
 import { loadSettings, saveSettings } from "../../shared/settings.js";
 import { statusGlyph } from "../../shared/ui/status.js";

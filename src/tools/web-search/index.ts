@@ -1,5 +1,5 @@
-import { defineTool } from "@mariozechner/pi-coding-agent";
-import { Text } from "@mariozechner/pi-tui";
+import { defineTool } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { statusGlyph } from "../../shared/ui/status.js";
 import { renderToolHeader } from "../../shared/ui/tool-header.js";

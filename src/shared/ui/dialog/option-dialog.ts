@@ -1,13 +1,13 @@
 import type {
 	ExtensionContext,
 	ThemeColor,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import {
 	type Component,
 	Container,
 	matchesKey,
 	Text,
-} from "@mariozechner/pi-tui";
+} from "@earendil-works/pi-tui";
 import { Panel, type PanelSection } from "../panel.js";
 import { showModal } from "./modal.js";
 import type {

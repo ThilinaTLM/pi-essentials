@@ -1,5 +1,5 @@
-import type { ExtensionAPI, Theme } from "@mariozechner/pi-coding-agent";
-import { visibleWidth } from "@mariozechner/pi-tui";
+import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
+import { visibleWidth } from "@earendil-works/pi-tui";
 import { getSettings, loadSettings } from "../../shared/settings.js";
 import { formatModelLabel, type ModelLike } from "../../shared/ui/model.js";
 import { statusGlyph } from "../../shared/ui/status.js";

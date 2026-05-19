@@ -1,4 +1,4 @@
-import { type Component, Loader, type TUI } from "@mariozechner/pi-tui";
+import { type Component, Loader, type TUI } from "@earendil-works/pi-tui";
 
 // Walks the TUI tree to find the first Loader. Modal dialogs pause it while
 // they own the screen so the spinner doesn't redraw over the modal.

@@ -1,5 +1,5 @@
-import { defineTool, type Theme } from "@mariozechner/pi-coding-agent";
-import { Container, Text } from "@mariozechner/pi-tui";
+import { defineTool, type Theme } from "@earendil-works/pi-coding-agent";
+import { Container, Text } from "@earendil-works/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { showPromptDialog } from "../../shared/ui/dialog/index.js";
 import { renderToolHeader } from "../../shared/ui/tool-header.js";

@@ -4,7 +4,7 @@ import type {
 	ExtensionAPI,
 	ExtensionContext,
 	ThemeColor,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import { prettyModelLabel } from "../../shared/ui/model.js";
 import {
 	formatCodexResetAfterSeconds as formatResetAfterSecondsRaw,

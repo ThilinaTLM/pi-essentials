@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import type { ThemeColor } from "@mariozechner/pi-coding-agent";
+import type { ThemeColor } from "@earendil-works/pi-coding-agent";
 import type { DisplayItem, SubagentMessage, UsageStats } from "./types.js";
 
 export function formatTokens(count: number): string {

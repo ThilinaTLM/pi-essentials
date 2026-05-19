@@ -8,7 +8,7 @@ import {
 import * as https from "node:https";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { AuthStorage } from "@mariozechner/pi-coding-agent";
+import { AuthStorage } from "@earendil-works/pi-coding-agent";
 
 const CACHE_DIR = join(homedir(), ".pi", "agent", "cache", "usage");
 const CACHE_FILE = join(CACHE_DIR, "usage.json");

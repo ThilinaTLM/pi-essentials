@@ -1,4 +1,4 @@
-import type { Theme, ThemeColor } from "@mariozechner/pi-coding-agent";
+import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 
 export type StatusKind = "ok" | "fail" | "pending" | "active" | "idle" | "info";
 

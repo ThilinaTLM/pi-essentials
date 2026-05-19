@@ -1,5 +1,5 @@
-import type { ThemeColor } from "@mariozechner/pi-coding-agent";
-import type { Component } from "@mariozechner/pi-tui";
+import type { ThemeColor } from "@earendil-works/pi-coding-agent";
+import type { Component } from "@earendil-works/pi-tui";
 
 export interface DialogOption<T> {
 	id: T;

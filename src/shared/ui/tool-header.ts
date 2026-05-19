@@ -1,6 +1,6 @@
-import type { Theme, ThemeColor } from "@mariozechner/pi-coding-agent";
-import { DynamicBorder } from "@mariozechner/pi-coding-agent";
-import { type Component, Container, Text } from "@mariozechner/pi-tui";
+import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
+import { DynamicBorder } from "@earendil-works/pi-coding-agent";
+import { type Component, Container, Text } from "@earendil-works/pi-tui";
 
 export interface ToolHeaderOptions {
 	title: string;
