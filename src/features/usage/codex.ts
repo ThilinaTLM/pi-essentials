@@ -3,82 +3,51 @@ import type {
 	ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { requestFooterRender } from "../footer/index.js";
+import {
+	type CodexUsageData,
+	getCodexUsageData,
+	parseCodexUsageHeaders,
+	writeCodexUsageCache,
+} from "./codex-client.js";
 
-export type CodexUsageData = {
-	primaryUsedPercent: number | null;
-	primaryResetAfterSeconds: number | null;
-	primaryWindowMinutes: number | null;
-	secondaryUsedPercent: number | null;
-	secondaryResetAfterSeconds: number | null;
-	secondaryWindowMinutes: number | null;
-	planType: string | null;
-	creditsBalance: string | null;
-	creditsHasCredits: boolean | null;
-	creditsUnlimited: boolean | null;
-	activeLimit: string | null;
-};
+export type { CodexUsageData };
+export { parseCodexUsageHeaders };
 
 const STATUS_KEY = "codex-usage";
-const HEADER_PREFIX = "x-codex-";
+const REFRESH_INTERVAL = 30_000;
 
 let snapshot: CodexUsageData | null = null;
+let pendingFetch: Promise<CodexUsageData | null> | undefined;
 let storedCtx: ExtensionContext | undefined;
-
-function getHeader(
-	headers: Record<string, string>,
-	name: string,
-): string | undefined {
-	// Node.js normalizes headers to lowercase, but try both for safety.
-	const lower = `${HEADER_PREFIX}${name}`.toLowerCase();
-	if (headers[lower] !== undefined) return headers[lower];
-	const original = `${HEADER_PREFIX}${name}`;
-	if (headers[original] !== undefined) return headers[original];
-	return undefined;
-}
-
-function parseHeaders(headers: Record<string, string>): CodexUsageData | null {
-	const pct = getHeader(headers, "primary-used-percent");
-	const secPct = getHeader(headers, "secondary-used-percent");
-
-	// If neither primary nor secondary percent is present, these aren't codex headers.
-	if (pct === undefined && secPct === undefined) {
-		return null;
-	}
-
-	const parseNum = (val: string | undefined): number | null =>
-		val !== undefined ? Number(val) : null;
-	const parseBool = (val: string | undefined): boolean | null =>
-		val !== undefined ? val === "true" : null;
-
-	return {
-		primaryUsedPercent: pct !== undefined ? Number(pct) : null,
-		primaryResetAfterSeconds: parseNum(
-			getHeader(headers, "primary-reset-after-seconds"),
-		),
-		primaryWindowMinutes: parseNum(
-			getHeader(headers, "primary-window-minutes"),
-		),
-		secondaryUsedPercent: secPct !== undefined ? Number(secPct) : null,
-		secondaryResetAfterSeconds: parseNum(
-			getHeader(headers, "secondary-reset-after-seconds"),
-		),
-		secondaryWindowMinutes: parseNum(
-			getHeader(headers, "secondary-window-minutes"),
-		),
-		planType: getHeader(headers, "plan-type") ?? null,
-		creditsBalance: getHeader(headers, "credits-balance") ?? null,
-		creditsHasCredits: parseBool(getHeader(headers, "credits-has-credits")),
-		creditsUnlimited: parseBool(getHeader(headers, "credits-unlimited")),
-		activeLimit: getHeader(headers, "active-limit") ?? null,
-	};
-}
+let refreshTimer: ReturnType<typeof setInterval> | undefined;
+let refreshGeneration = 0;
 
 function isCodex(model: { provider: string } | undefined): boolean {
 	return model?.provider === "openai-codex";
 }
 
+function startPolling(): void {
+	if (refreshTimer) return;
+	if (!isCodex(storedCtx?.model)) return;
+
+	refreshTimer = setInterval(() => {
+		if (!pendingFetch) {
+			refresh(storedCtx?.model);
+		}
+	}, REFRESH_INTERVAL);
+}
+
+function stopPolling(): void {
+	if (refreshTimer) {
+		clearInterval(refreshTimer);
+		refreshTimer = undefined;
+	}
+}
+
 function clearSnapshot(): void {
+	refreshGeneration++;
 	snapshot = null;
+	pendingFetch = undefined;
 	storedCtx?.ui.setStatus(STATUS_KEY, undefined);
 	requestFooterRender();
 }
@@ -95,6 +64,79 @@ function formatStatus(data: CodexUsageData): string | null {
 	}
 
 	return parts.length > 0 ? parts.join(" │ ") : null;
+}
+
+function mergeUsageData(
+	base: CodexUsageData | null,
+	update: CodexUsageData,
+): CodexUsageData {
+	if (!base) return update;
+	return {
+		primaryUsedPercent: update.primaryUsedPercent ?? base.primaryUsedPercent,
+		primaryResetAfterSeconds:
+			update.primaryResetAfterSeconds ?? base.primaryResetAfterSeconds,
+		primaryWindowMinutes:
+			update.primaryWindowMinutes ?? base.primaryWindowMinutes,
+		secondaryUsedPercent:
+			update.secondaryUsedPercent ?? base.secondaryUsedPercent,
+		secondaryResetAfterSeconds:
+			update.secondaryResetAfterSeconds ?? base.secondaryResetAfterSeconds,
+		secondaryWindowMinutes:
+			update.secondaryWindowMinutes ?? base.secondaryWindowMinutes,
+		planType: update.planType ?? base.planType,
+		creditsBalance: update.creditsBalance ?? base.creditsBalance,
+		creditsHasCredits: update.creditsHasCredits ?? base.creditsHasCredits,
+		creditsUnlimited: update.creditsUnlimited ?? base.creditsUnlimited,
+		activeLimit: update.activeLimit ?? base.activeLimit,
+	};
+}
+
+function applySnapshot(data: CodexUsageData, persist: boolean): void {
+	snapshot = data;
+	storedCtx?.ui.setStatus(STATUS_KEY, formatStatus(data) ?? undefined);
+	if (persist) {
+		writeCodexUsageCache(data);
+	}
+	requestFooterRender();
+}
+
+function refresh(model: { provider: string } | undefined): void {
+	if (!storedCtx) return;
+
+	if (!isCodex(model)) {
+		stopPolling();
+		clearSnapshot();
+		return;
+	}
+
+	if (pendingFetch) return;
+
+	const generation = ++refreshGeneration;
+	pendingFetch = getCodexUsageData()
+		.then((data) => {
+			if (generation !== refreshGeneration || !isCodex(storedCtx?.model)) {
+				return null;
+			}
+			if (!data) {
+				// Transient failure (rate-limit, network, parse). Keep the previous
+				// snapshot on screen instead of wiping the segment.
+				requestFooterRender();
+				return null;
+			}
+			applySnapshot(data, false);
+			return data;
+		})
+		.catch(() => {
+			if (generation === refreshGeneration) {
+				requestFooterRender();
+			}
+			return null;
+		})
+		.finally(() => {
+			if (generation === refreshGeneration) {
+				pendingFetch = undefined;
+			}
+		});
 }
 
 export function getCodexUsageSnapshot(): CodexUsageData | null {
@@ -119,12 +161,16 @@ export function formatCodexResetAfterSeconds(
 export function registerCodexUsage(pi: ExtensionAPI): void {
 	pi.on("session_start", (_event, ctx) => {
 		storedCtx = ctx;
+		refresh(ctx.model);
+		startPolling();
 	});
 
 	pi.on("model_select", (event) => {
 		const model = (event as { model: { provider: string } }).model;
-		if (!isCodex(model)) {
-			clearSnapshot();
+		stopPolling();
+		refresh(model);
+		if (isCodex(model)) {
+			startPolling();
 		}
 	});
 
@@ -137,12 +183,14 @@ export function registerCodexUsage(pi: ExtensionAPI): void {
 		}) => {
 			if (!isCodex(storedCtx?.model)) return;
 
-			const data = parseHeaders(event.headers);
+			const data = parseCodexUsageHeaders(event.headers);
 			if (!data) return;
 
-			snapshot = data;
-			storedCtx?.ui.setStatus(STATUS_KEY, formatStatus(data) ?? undefined);
-			requestFooterRender();
+			applySnapshot(mergeUsageData(snapshot, data), true);
 		},
 	);
+
+	pi.on("session_shutdown", () => {
+		stopPolling();
+	});
 }
