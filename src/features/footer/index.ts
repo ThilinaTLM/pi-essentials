@@ -25,7 +25,7 @@ import {
 	LEFT_SEP,
 	shortenCwd,
 } from "./format.js";
-import { createGitDirtyWatcher, isGitDirty } from "./git.js";
+import { createGitStateWatcher, getGitBranch, isGitDirty } from "./git.js";
 import { buildFooterLine } from "./layout.js";
 
 const GIT_REFRESH_DEBOUNCE_MS = 250;
@@ -52,20 +52,27 @@ export function requestFooterRender(): void {
 
 export function registerFooter(pi: ExtensionAPI): void {
 	let gitDirty = false;
+	let gitBranch: string | null = null;
 	let lastDirty: boolean | undefined;
+	let lastBranch: string | null | undefined;
 	let refreshCounter = 0;
 	let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 	let gitWatcherDispose: (() => void) | undefined;
 
-	async function refreshGitDirty(cwd: string): Promise<void> {
+	async function refreshGitState(cwd: string): Promise<void> {
 		const refreshId = ++refreshCounter;
-		const dirty = await isGitDirty(cwd);
+		const [dirty, branch] = await Promise.all([
+			isGitDirty(cwd),
+			getGitBranch(cwd),
+		]);
 		if (refreshId !== refreshCounter) {
 			return;
 		}
 		gitDirty = dirty;
-		if (lastDirty !== dirty) {
+		gitBranch = branch;
+		if (lastDirty !== dirty || lastBranch !== branch) {
 			lastDirty = dirty;
+			lastBranch = branch;
 			currentRequestRender?.();
 		}
 	}
@@ -74,7 +81,7 @@ export function registerFooter(pi: ExtensionAPI): void {
 		if (refreshTimer) return;
 		refreshTimer = setTimeout(() => {
 			refreshTimer = undefined;
-			void refreshGitDirty(cwd);
+			void refreshGitState(cwd);
 		}, GIT_REFRESH_DEBOUNCE_MS);
 	}
 
@@ -113,7 +120,7 @@ export function registerFooter(pi: ExtensionAPI): void {
 					const leftSegments = [
 						...getFooterLeftItems().values(),
 						theme.fg("muted", shortenCwd(ctx.cwd)),
-						formatBranch(theme, footerData.getGitBranch(), gitDirty),
+						formatBranch(theme, gitBranch, gitDirty),
 					].filter((segment): segment is string => Boolean(segment));
 
 					const anthropicData = getAnthropicUsageSnapshot();
@@ -238,8 +245,9 @@ export function registerFooter(pi: ExtensionAPI): void {
 		installFooter(ctx);
 		teardownGitWatcher();
 		lastDirty = undefined;
-		await refreshGitDirty(ctx.cwd);
-		gitWatcherDispose = createGitDirtyWatcher(ctx.cwd, () => {
+		lastBranch = undefined;
+		await refreshGitState(ctx.cwd);
+		gitWatcherDispose = createGitStateWatcher(ctx.cwd, () => {
 			scheduleGitRefresh(ctx.cwd);
 		}).dispose;
 	});
