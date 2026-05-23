@@ -1,4 +1,6 @@
 import { mkdir, readFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "@sinclair/typebox";
@@ -12,6 +14,17 @@ import {
 } from "./ui.js";
 
 const UNRESOLVED_PLAN_MARKER = /\[!(QUESTION|DECISION)\]/i;
+
+function resolvePlanDisplayPath(filePath: string): string {
+	if (filePath.startsWith("~/")) {
+		return join(homedir(), filePath.slice(2));
+	}
+	return resolve(filePath);
+}
+
+function buildAcceptedPlanFollowUp(filePath: string): string {
+	return `The user accepted the plan at ${filePath}. Proceed with the implementation using that plan as the source of truth.`;
+}
 
 function requireContext<T>(ctx: T | undefined): T {
 	if (!ctx) {
@@ -104,12 +117,13 @@ export const planPresentTool = defineTool({
 				`Plan file must be inside ${PLANS_DIR}/. Attempted: ${params.file_path}`,
 			);
 		}
+		const planFilePath = resolvePlanDisplayPath(params.file_path);
 
 		let content: string;
 		try {
-			content = await readFile(params.file_path, "utf-8");
+			content = await readFile(planFilePath, "utf-8");
 		} catch {
-			throw new Error(`Could not read plan file: ${params.file_path}`);
+			throw new Error(`Could not read plan file: ${planFilePath}`);
 		}
 
 		if (!content.trim()) {
@@ -124,20 +138,23 @@ export const planPresentTool = defineTool({
 			);
 		}
 
-		const choice = await presentPlanReview(context, params.file_path, content);
+		const choice = await presentPlanReview(context, planFilePath, content);
 		if (choice === "accept") {
 			exitPlanMode(context);
+			getPi().sendUserMessage(buildAcceptedPlanFollowUp(planFilePath), {
+				deliverAs: "steer",
+			});
 			return {
 				content: [
 					{
 						type: "text",
-						text: `Plan accepted. Read the plan file at ${params.file_path} and start implementing it now.`,
+						text: "Plan accepted. Continuing with implementation.",
 					},
 				],
 				details: {
 					content,
 					action: "accepted",
-					filePath: params.file_path,
+					filePath: planFilePath,
 				} satisfies PlanPresentationDetails,
 			};
 		}
@@ -146,9 +163,9 @@ export const planPresentTool = defineTool({
 			exitPlanMode(context);
 			context.abort();
 
-			const followUpMessage = `Read the plan at ${params.file_path} and start implementing it now.`;
+			const followUpMessage = buildAcceptedPlanFollowUp(planFilePath);
 			const customInstructions =
-				`The user has accepted the finalized implementation plan at ${params.file_path}. ` +
+				`The user has accepted the finalized implementation plan at ${planFilePath}. ` +
 				`That file is the canonical source of truth for execution; do not restate its contents in the summary. ` +
 				`Focus the summary on project context, constraints, and decisions surfaced during planning that are relevant to implementation.`;
 
@@ -176,7 +193,7 @@ export const planPresentTool = defineTool({
 				details: {
 					content,
 					action: "accepted_compact",
-					filePath: params.file_path,
+					filePath: planFilePath,
 				} satisfies PlanPresentationDetails,
 			};
 		}
@@ -187,13 +204,13 @@ export const planPresentTool = defineTool({
 				content: [
 					{
 						type: "text",
-						text: `User wants changes to the plan. Update the plan file at ${params.file_path} and present again.`,
+						text: `User wants changes to the plan. Update the plan file at ${planFilePath} and present again.`,
 					},
 				],
 				details: {
 					content,
 					action: "changes_requested",
-					filePath: params.file_path,
+					filePath: planFilePath,
 				} satisfies PlanPresentationDetails,
 			};
 		}
@@ -202,13 +219,13 @@ export const planPresentTool = defineTool({
 			content: [
 				{
 					type: "text",
-					text: `Plan review dismissed. Plan mode remains active. Re-present ${params.file_path} when you're ready.`,
+					text: `Plan review dismissed. Plan mode remains active. Re-present ${planFilePath} when you're ready.`,
 				},
 			],
 			details: {
 				content,
 				action: "dismissed",
-				filePath: params.file_path,
+				filePath: planFilePath,
 			} satisfies PlanPresentationDetails,
 		};
 	},

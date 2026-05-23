@@ -6,6 +6,7 @@ import type {
 import { getPlanModeToolBlock, PLANS_DIR } from "./guards.js";
 import { buildPlanModeSystemPrompt } from "./prompt.js";
 import {
+	ensurePlanLifecycleToolsActive,
 	enterPlanMode,
 	exitPlanMode,
 	initializePlanState,
@@ -31,6 +32,7 @@ export function registerPlan(pi: ExtensionAPI) {
 					entry.type === "custom" && entry.customType === PLAN_MODE_STATE_ENTRY,
 			) as { data?: { active?: boolean } } | undefined;
 
+		ensurePlanLifecycleToolsActive();
 		restorePlanMode(ctx, planModeEntry?.data?.active === true);
 	});
 
