@@ -33,7 +33,9 @@ export function isPlanActive(): boolean {
 export function ensurePlanLifecycleToolsActive(): void {
 	if (!piRef) return;
 	const current = piRef.getActiveTools();
-	const missing = PLAN_LIFECYCLE_TOOLS.filter((name) => !current.includes(name));
+	const missing = PLAN_LIFECYCLE_TOOLS.filter(
+		(name) => !current.includes(name),
+	);
 	if (missing.length > 0) {
 		piRef.setActiveTools([...current, ...missing]);
 	}

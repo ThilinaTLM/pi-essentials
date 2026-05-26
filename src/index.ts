@@ -4,6 +4,7 @@ import { registerFooter } from "./features/footer/index.js";
 import { registerHandover } from "./features/handover/index.js";
 import { registerPermissions } from "./features/permissions/index.js";
 import { registerPlan } from "./features/plan/index.js";
+import { registerProc } from "./features/proc/index.js";
 import {
 	registerSystemPromptDump,
 	registerSystemPromptOverride,
@@ -26,6 +27,7 @@ export default function (pi: ExtensionAPI) {
 	registerPermissions(pi);
 	registerSystemPromptOverride(pi);
 	registerPlan(pi);
+	registerProc(pi);
 	registerHandover(pi);
 	registerFooter(pi);
 	registerWelcome(pi);
